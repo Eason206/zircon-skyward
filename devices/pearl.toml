@@ -14,6 +14,13 @@ recovery_partition = "vendor_boot"
 # the services that registered with it away.
 restart_service_directory = false
 
+[properties]
+# The phone's own init sets these on fs before its programs start, and a
+# recovery runs none of those lines. gatekeeper loads its mitee module by
+# the first, and the secure world's programs wait for the second.
+"ro.hardware.gatekeeper" = "mitee"
+"vendor.teefs_state" = "ready"
+
 [display]
 # The 6.6-inch 1080 x 2460 panel, at the density the vendor partition's
 # build.prop gives it. The corners' radius is the one the installed system's

@@ -139,11 +139,11 @@ fn main() -> Result<()> {
         }
         Cmd::Recovery { stock, binary, system_init, config, font, mono, mono_license, add, out } => {
             let size = partition_size(&stock)?;
-            skyward_config::DeviceConfig::load(&config)?;
+            let cfg = skyward_config::DeviceConfig::load(&config)?;
             let mut img = Image::read(&stock)?;
             let mut rd = Ramdisk::decode(img.ramdisk())?;
             let files = Packed { binary: &binary, system_init: &system_init, config: &config, font: &font, mono: &mono, mono_license: &mono_license };
-            edit_ramdisk(&mut rd, &stock, &files, &add)?;
+            edit_ramdisk(&mut rd, &stock, &files, &add, &cfg)?;
             img.set_ramdisk(rd.encode()?)?;
             let bytes = img.to_bytes()?;
             let partition = match img {
@@ -312,7 +312,7 @@ struct Packed<'a> {
 }
 
 /// What Skyward adds to a stock ramdisk and changes in it.
-fn edit_ramdisk(rd: &mut Ramdisk, stock: &Path, files: &Packed<'_>, add: &[String]) -> Result<()> {
+fn edit_ramdisk(rd: &mut Ramdisk, stock: &Path, files: &Packed<'_>, add: &[String], cfg: &skyward_config::DeviceConfig) -> Result<()> {
     // A stock recovery ramdisk has no third-party tree; refuse to build on
     // top of another custom recovery.
     if let Some(e) = rd.entries.iter().find(|e| e.name == "FFiles" || e.name.starts_with("twres")) {
@@ -355,6 +355,12 @@ fn edit_ramdisk(rd: &mut Ramdisk, stock: &Path, files: &Packed<'_>, add: &[Strin
         .data;
     let mut props = without(stock_props, &BUILD_VERSION);
     props.extend_from_slice(b"\nro.secure=0\nro.adb.secure=0\nro.debuggable=1\nro.ota.allow_downgrade=true\n");
+    // What the configuration has init set as it starts, such as the variant
+    // of the secure world's hardware service modules, which the phone's own
+    // init sets on fs and a recovery's never runs to.
+    for (name, value) in &cfg.properties {
+        props.extend_from_slice(format!("{name}={value}\n").as_bytes());
+    }
     rd.replace(paths::PROP_DEFAULT, props)?;
     Ok(())
 }

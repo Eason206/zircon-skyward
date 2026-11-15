@@ -1,6 +1,6 @@
 use anyhow::{ensure, Context, Result};
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 /// Recovery ramdisk files Skyward reads, adds or changes, as archive paths
@@ -47,6 +47,12 @@ pub struct DeviceConfig {
     /// Where this build is published, where it is not the project's own.
     #[serde(default)]
     pub skyward: Option<Skyward>,
+    /// Properties the recovery's init sets as it starts, before its own
+    /// scripts run: the variant of a hardware service's module, and what
+    /// the secure world's programs wait for, which a recovery's init
+    /// leaves unset.
+    #[serde(default)]
+    pub properties: BTreeMap<String, String>,
     #[serde(default)]
     pub display: Display,
     #[serde(default)]
@@ -522,6 +528,12 @@ pub fn capability(name: &str) -> Option<u32> {
     CAPABILITIES.iter().position(|c| *c == name).map(|n| n as u32)
 }
 
+/// Whether `name` reads as a property's name, as init's property service
+/// takes one.
+fn property_name(name: &str) -> bool {
+    !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+}
+
 /// A property of the installed system, and a value it may have.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Property {
@@ -624,6 +636,13 @@ impl DeviceConfig {
             let path = Path::new(library);
             let plain = path.components().all(|c| matches!(c, std::path::Component::RootDir | std::path::Component::Normal(_)));
             ensure!(path.is_absolute() && plain && path.file_name().is_some(), "[device] recovery_libraries: {library} is not an absolute path to a file");
+        }
+        for (name, value) in &cfg.properties {
+            ensure!(property_name(name), "[properties] {name:?} is not a property's name");
+            ensure!(
+                !value.bytes().any(|b| matches!(b, b'\n' | b'\r' | 0)),
+                "[properties] {name}: the value is not one line"
+            );
         }
         for s in cfg.services.iter().filter(|s| s.oneshot) {
             let waits = s.ready_property.is_some() || s.ready_service.is_some() || s.ready_hardware_service.is_some();
@@ -801,6 +820,8 @@ mod tests {
         assert_eq!(cfg.device.codename, "pearl");
         assert_eq!(cfg.device.os_version_prop, "ro.mi.os.version.incremental");
         assert_eq!(cfg.device.recovery_partition, "vendor_boot");
+        assert_eq!(cfg.properties.get("ro.hardware.gatekeeper").map(String::as_str), Some("mitee"));
+        assert_eq!(cfg.properties.get("vendor.teefs_state").map(String::as_str), Some("ready"));
         let soc = cfg.device.soc.expect("pearl names its SoC");
         assert_eq!(soc.hans, "天玑 8200-Ultra");
         assert_eq!(soc.en, "Dimensity 8200-Ultra");
@@ -820,6 +841,16 @@ mod tests {
         assert_eq!(haptics.strength, Strength { lightest: 0.25, strongest: 1.0 });
         assert_eq!(cfg.backup.efs, ["nvdata", "nvcfg", "protect1", "protect2", "persist"]);
         assert!(cfg.wipe.logs.contains(&"/data/vendor/mtklog".to_string()));
+    }
+
+    #[test]
+    fn properties_are_named_and_written_one_to_a_line() {
+        let with = |body: &str| DeviceConfig::parse(&format!("[device]\ncodename = \"x\"\n[properties]\n{body}\n"));
+        assert_eq!(with("\"ro.hardware.gatekeeper\" = \"mitee\"").unwrap().properties["ro.hardware.gatekeeper"], "mitee");
+        for bad in ["\"a b\" = \"x\"", "\"a=b\" = \"x\"", "\"\" = \"x\""] {
+            assert!(with(bad).is_err(), "{bad} is refused");
+        }
+        assert!(with("\"a\" = \"x\\ny\"").is_err(), "a value is one line");
     }
 
     #[test]
