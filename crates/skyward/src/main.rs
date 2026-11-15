@@ -63,7 +63,7 @@ struct Cli {
 enum Cmd {
     /// Print what the About page shows, plus a partition summary.
     Info {
-        /// Device configuration, e.g. devices/nezha.toml.
+        /// Device configuration, e.g. devices/pearl.toml.
         #[arg(long)]
         config: String,
     },

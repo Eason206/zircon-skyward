@@ -1,11 +1,10 @@
 [device]
-codename = "xaga"
+codename = "pearl"
 brand = "Redmi"
-# Sold as the Redmi Note 11T Pro / Note 11T Pro+, the POCO X4 GT and the
-# Redmi K50i; the phone itself calls all of them xaga.
-model = "Redmi Note 11T Pro"
+# Sold as the Redmi Note 12T Pro; the phone itself calls it pearl.
+model = "Redmi Note 12T Pro"
 ab = true
-soc = { hans = "天玑 8100", hant = "天璣 8100", en = "Dimensity 8100" }
+soc = { hans = "天玑 8200-Ultra", hant = "天璣 8200-Ultra", en = "Dimensity 8200-Ultra" }
 os_version_prop = "ro.mi.os.version.incremental"
 # The recovery this is built on lives in the vendor_boot partition, as it
 # does on MediaTek phones that keep no recovery partition of their own.
@@ -17,11 +16,13 @@ restart_service_directory = false
 
 [display]
 # The 6.6-inch 1080 x 2460 panel, at the density the vendor partition's
-# build.prop gives it.
+# build.prop gives it. The corners' radius is the one the installed system's
+# framework overlay gives them.
 width = 1080
 height = 2460
 density = 480
 diagonal = 6.6
+corner_radius = 94
 # MediaTek's display driver tears at 144 Hz; the panel stays at the 60 Hz
 # mode it comes up in.
 fastest_refresh = false
@@ -37,8 +38,8 @@ sources = ["vendor_boot", "vendor_dlkm", "vendor"]
 # them, so it is loaded here.
 load = ["haptic"]
 
-# The touchscreen's driver is left as it comes up: xaga's Novatek
-# NT36672C resets its firmware when told to report positions through
+# The touchscreen's driver is left as it comes up: pearl's Novatek
+# NT36672E resets its firmware when told to report positions through
 # Xiaomi's touch layer, so nothing is written here.
 
 [haptics]
@@ -83,20 +84,12 @@ service = "android.hardware.wifi.supplicant@1.4::ISupplicant/default"
 probe = "http://connect.rom.miui.com/generate_204"
 
 [stock]
-# The Chinese system's first HyperOS build, whose full update package on the
-# phone maker's own server holds the vendor boot image the recovery is made
-# on: the Xiaomi account this phone comes with keeps its vendor partition
-# from that build. The package names it OS1.0.3.0, which is the same build
-# the phone reports as V816.0.3.0.
-version = "OS1.0.3.0.ULOCNXM"
-package = "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS1.0.3.0.ULOCNXM/miui_XAGA_OS1.0.3.0.ULOCNXM_ddae354606_14.0.zip"
-recovery = "fed80580d619b916d73b51b704f2af6c9f08afafc84810ced0b2397a0b52797f"
-
-[skyward]
-# Where this build's own releases are published, which its update page asks
-# about a newer one. This fork publishes them itself; the project's own is
-# `kirklin/skyward`, which a phone that names none is asked about.
-releases = "BkaNeko/xaga-skyward"
+# The Chinese system's OS3.0.3.0 build, whose full update package on the
+# phone maker's own download server holds the vendor boot image the recovery
+# is made on.
+version = "OS3.0.3.0.VLHCNXM"
+package = "https://bkt-sgp-miui-ota-update-alisgp.oss-ap-southeast-1.aliyuncs.com/OS3.0.3.0.VLHCNXM/pearl-ota_full-OS3.0.3.0.VLHCNXM-user-15.0-b919fdadf8.zip"
+recovery = "5bbb608a856c6ec2023e0acb5b4d174bf4f81ee17893708883af7453a2590654"
 
 [update]
 # The phone maker's update server, which the stock updater asks about the
@@ -117,82 +110,22 @@ mounted = ["persist"]
 [logd]
 libraries = ["/mnt/system/system/lib64/libsysutils.so", "/mnt/system/system/lib64/libcap.so"]
 
-# MediaTek's TrustZone daemon: the key service below opens its session
-# through it.
+# MediaTek's TrustZone supplicant, which the key service below opens its
+# session through: the phone's own init starts it on fs, and a recovery runs
+# none of init's boot actions.
 [[service]]
-path = "/vendor/bin/teei_daemon"
+path = "/vendor/bin/tee-supplicant"
 libraries = ["/system/lib64", "/vendor/lib64"]
-args = [
-    "-r", "020b0000000000000000000000000000",
-    "-r", "020f0000000000000000000000000000",
-    "-r", "06090000000000000000000000000000",
-    "-r", "05120000000000000000000000000000",
-    "-r", "40188311faf343488db888ad39496f9a",
-    "-r", "07060000000000000000000000007169",
-    "-r", "4be4f7dc1f2c11e5b5f7727283247c7f",
-    "-r", "9073f03a9618383bb1856eb3f990babd",
-    "-r", "08050000000000000000000000003419",
-    "-r", "5020170115e016302017012521300000",
-    "-r", "0f5eed3c3b5a47afacca69a84bf0efad",
-    "-r", "07407000000000000000000000000000",
-    "-r", "05160000000000000000000000000000",
-    "-r", "91dba524a6e24909acc48abd7163121a",
-    "-r", "08070000000000000000000000008270",
-    "-r", "09080000000000000000000000009381",
-    "-t", "08030000000000000000000000000000",
-    "-t", "85f630e0f0964c5fa2cc268ce04e3da3",
-    "-t", "98fb95bcb4bf42d26473eae48690d7ea",
-    "-t", "7b66512021214487ba710a51d7ea78fe",
-    "-t", "09010000000000000000000000000000",
-]
 user = "system"
 groups = ["system"]
 capabilities = ["SYS_RAWIO"]
 
-# The key service the data partition's keys come from, as the phone's own
-# init starts it: MediaTek's and Xiaomi's "beanpod" KeyMint over the TEE.
-[[service]]
-path = "/vendor/bin/hw/android.hardware.security.keymint@1.0-service.beanpod"
-libraries = ["/system/lib64", "/vendor/lib64"]
-user = "nobody"
-groups = ["nobody"]
-ready_service = "android.hardware.security.keymint.IKeyMintDevice/default"
-registers = [
-    "android.hardware.security.keymint.IRemotelyProvisionedComponent/default",
-    "android.hardware.security.secureclock.ISecureClock/default",
-    "android.hardware.security.sharedsecret.ISharedSecret/default",
-]
-
-# The directory for the phone's services of the older kind, which the
-# recovery's init leaves stopped.
-[[service]]
-path = "/system/bin/hwservicemanager"
-libraries = ["/system/lib64", "/vendor/lib64"]
-user = "system"
-groups = ["system", "readproc"]
-ready_property = "hwservicemanager.ready"
-
-# The screen lock's check, of the older kind of hardware service.
-[[service]]
-path = "/vendor/bin/hw/android.hardware.gatekeeper@1.0-service"
-libraries = ["/system/lib64", "/vendor/lib64"]
-user = "system"
-groups = ["system"]
-ready_hardware_service = "android.hardware.gatekeeper@1.0::IGatekeeper/default"
-
-# Which slot starts next, for a switch of slots.
-[[service]]
-path = "/vendor/bin/hw/android.hardware.boot@1.2-service"
-libraries = ["/system/lib64", "/vendor/lib64"]
-user = "root"
-groups = ["root"]
-ready_hardware_service = "android.hardware.boot@1.2::IBootControl/default"
-
 # MediaTek's connectivity bring-up: the loader opens the connectivity
 # driver's node and asks it to set the chip's part of the firmware up, then
 # tells the phone it is ready; the assistant waits for the WLAN driver's
-# node and writes the chip's settings to it. Both are started at boot and
-# wait, so the WLAN's own bring-up is what opens their nodes to them.
+# node and writes the chip's settings to it. Both are kept up, as the driver
+# they open is loaded only when the WLAN is turned on: a loader started
+# before then ends, and is started again once the node is there.
 [[service]]
 path = "/vendor/bin/conninfra_loader"
 libraries = ["/system/lib64", "/vendor/lib64"]
@@ -205,39 +138,24 @@ libraries = ["/vendor/lib64/vndk", "/system/lib64", "/vendor/lib64"]
 user = "wifi"
 groups = ["system", "gps"]
 
-# The nodes the TEE's programs open, as the phone's own init hands them
-# over before its programs start; a recovery runs none of those lines.
+# The nodes the TEE's programs open, as the phone's own init hands them over
+# on fs before its programs start; a recovery runs none of those lines.
 [[owners]]
 user = "system"
 group = "system"
 mode = 0o660
-paths = ["/dev/teei_client", "/dev/teei_config", "/dev/tz_vfs"]
+paths = ["/dev/tee0", "/dev/teepriv0"]
 
-[[owners]]
-user = "system"
-group = "drmrpc"
-mode = 0o660
-paths = ["/dev/ut_keymaster"]
-
-[[owners]]
-user = "system"
-group = "drmrpc"
-mode = 0o666
-paths = ["/dev/isee_tee0"]
-
-# The UFS RPMB well-known unit, through which teei_daemon (running as
-# system) serves the secure world's RPMB storage; the phone's own
-# microtrust.rc hands it over on fs, before it starts teei_daemon. Left to
-# root, the secure storage cannot open RPMB, the gatekeeper TA comes up
-# without what it keeps there, and it refuses every credential the
-# installed system enrolled (their handles carry the secure-throttling
-# flag). It has to be in place before teei_daemon starts: the TA reads RPMB
-# only when it loads, so handing it over later changes nothing.
+# The UFS RPMB well-known unit, through which the supplicant (running as
+# system) serves the secure world's RPMB storage. The phone's own init hands
+# it over on fs, before the key service starts; left to root, the secure
+# world cannot open RPMB, and it refuses every credential the installed
+# system enrolled.
 [[owners]]
 user = "system"
 group = "system"
 mode = 0o660
-paths = ["/dev/0:0:0:49476", "/dev/rpmb0"]
+paths = ["/dev/0:0:0:49476", "/dev/rpmb0", "/dev/mmcblk0rpmb", "/dev/ufs-bsg0"]
 
 [backup]
 # The baseband's and the sensors' settings, with the phone's own identity;
@@ -248,6 +166,6 @@ efs = ["nvdata", "nvcfg", "protect1", "protect2", "persist"]
 logs = ["/data/vendor/mtklog", "/data/vendor/connsyslog"]
 
 # WLAN comes up through the phone's own programs: conninfra_loader and
-# wlan_assistant, started at boot, and the driver switched on by the [wlan]
+# wlan_assistant, started above, and the driver switched on by the [wlan]
 # write above. What they need from the installed system is its nvdata
 # partition, which the [wlan] mount provides.
