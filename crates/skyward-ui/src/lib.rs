@@ -1,4 +1,5 @@
 pub mod app;
+pub mod avatar;
 pub mod canvas;
 pub mod charge;
 pub mod color;
@@ -23,6 +24,7 @@ pub mod theme;
 pub mod widgets;
 
 pub use app::App;
+pub use avatar::Avatar;
 pub use canvas::Canvas;
 pub use color::Rgba;
 pub use font::Fonts;

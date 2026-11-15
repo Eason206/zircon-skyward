@@ -125,6 +125,15 @@ pub fn prepare_hardware_directory(wanted: &[String]) -> Result<()> {
     fs::set_permissions(RECOVERY_LABELS, std::os::unix::fs::PermissionsExt::from_mode(0o755))
         .with_context(|| format!("open {RECOVERY_LABELS} to every user"))?;
     fs::copy(from, &into).with_context(|| format!("copy {} to {}", from.display(), into.display()))?;
+    // A recovery may carry no description folder of its own, as pearl's
+    // does; the directory reads the description whether or not anything
+    // else is there.
+    let manifest = Path::new(RECOVERY_MANIFEST);
+    if let Some(parent) = manifest.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("make {}", parent.display()))?;
+        fs::set_permissions(parent, std::os::unix::fs::PermissionsExt::from_mode(0o755))
+            .with_context(|| format!("open {} to every user", parent.display()))?;
+    }
     fs::write(RECOVERY_MANIFEST, describe_hardware(wanted)?).with_context(|| format!("write {RECOVERY_MANIFEST}"))?;
     fs::set_permissions(RECOVERY_MANIFEST, std::os::unix::fs::PermissionsExt::from_mode(0o644))
         .with_context(|| format!("let every user read {RECOVERY_MANIFEST}"))?;
@@ -228,21 +237,31 @@ pub fn publish_descriptions(wanted: &[String]) -> Result<()> {
     fs::write(&to, skyward_programs::description::offering(&untold)?).with_context(|| format!("write {}", to.display()))?;
     fs::set_permissions(&to, std::os::unix::fs::PermissionsExt::from_mode(0o644)).with_context(|| format!("let every user read {}", to.display()))?;
     let rewritten = say_framework(into)?;
+    // The directory reads the description beside the folder whether or not
+    // it reads the folder: the services of the newer kind are told there
+    // too, beside the hardware services the recovery wrote of before.
+    tell_main_manifest(wanted)?;
     // The directory reads the descriptions once and keeps to them, so one
     // that read them before these were written has to start again to see
     // these. One an earlier run of the recovery service had start again
     // knows them already, and is left with what has registered with it
-    // since.
-    let binder = skyward_binder::driver::Binder::open()?;
+    // since. A recovery that carries no directory of its own starts the
+    // installed system's after this, and none answers yet: that one reads
+    // these descriptions as it starts, so there is nothing to ask or to
+    // start again.
+    let answering = crate::services::reachable();
     // The first it does not know described settles that it starts again.
     let mut unknown = false;
-    for name in wanted {
-        if !skyward_binder::service::declared(&binder, name).with_context(|| format!("ask the service directory whether it knows {name} described"))? {
-            unknown = true;
-            break;
+    if answering {
+        let binder = skyward_binder::driver::Binder::open()?;
+        for name in wanted {
+            if !skyward_binder::service::declared(&binder, name).with_context(|| format!("ask the service directory whether it knows {name} described"))? {
+                unknown = true;
+                break;
+            }
         }
     }
-    if unknown || rewritten > 0 {
+    if answering && (unknown || rewritten > 0) {
         // It comes back knowing nothing of what had registered with it,
         // and nothing registers again by itself, so init starts each of
         // those services again, as the installed system's init does
@@ -252,6 +271,38 @@ pub fn publish_descriptions(wanted: &[String]) -> Result<()> {
         skyward_sys::set_prop("ctl.restart", DIRECTORY_SERVICE).context("have the service directory start again")?;
         answering_again(was)?;
         register_again(&registered)?;
+    }
+    Ok(())
+}
+
+/// Tell the description of the whole system, which the directory reads
+/// whether or not it reads the folder beside it, of the services of the
+/// newer kind in `wanted`: each is added to the hardware services the
+/// recovery wrote there before, unless the description tells of it already.
+fn tell_main_manifest(wanted: &[String]) -> Result<()> {
+    let path = Path::new(RECOVERY_MANIFEST);
+    let mut text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::from("<manifest version=\"1.0\" type=\"framework\">\n</manifest>\n"),
+        Err(e) => return Err(e).with_context(|| format!("read {}", path.display())),
+    };
+    let mut told = false;
+    for name in wanted {
+        let service = skyward_programs::description::Described::named(name)?;
+        if service.kind != skyward_programs::description::Kind::Aidl {
+            continue;
+        }
+        let fqname = format!("<fqname>{}/{}</fqname>", service.interface, service.instance);
+        if text.contains(&fqname) {
+            continue;
+        }
+        let at = text.rfind("</manifest>").with_context(|| format!("{} ends no manifest", path.display()))?;
+        text.insert_str(at, &skyward_programs::description::hal(name)?);
+        told = true;
+    }
+    if told {
+        fs::write(path, text).with_context(|| format!("write {}", path.display()))?;
+        fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o644)).with_context(|| format!("let every user read {}", path.display()))?;
     }
     Ok(())
 }

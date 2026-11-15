@@ -91,8 +91,7 @@ enum Cmd {
     },
     /// Run as the recovery service (what init starts as /system/bin/recovery).
     Recovery,
-    /// Reboot through init: system, recovery, fastboot, bootloader, edl, or
-    /// off.
+    /// Reboot through init: system, recovery, fastboot, bootloader, or off.
     Reboot { target: String },
     /// Print the bootloader control block in misc.
     Bcb,
@@ -528,6 +527,15 @@ fn load_modules(cfg: &DeviceConfig, names: &[String]) -> Result<Vec<PathBuf>> {
     skyward_modules::load(&dirs, names)
 }
 
+/// The directory the phone's own programs register with, where a recovery
+/// carries one of its own.
+#[cfg(target_os = "android")]
+const SERVICE_DIRECTORY: &str = "/system/bin/servicemanager";
+/// The same directory as the installed system carries it, where a recovery
+/// carries none: its programs were built against the one there.
+#[cfg(target_os = "android")]
+const INSTALLED_SERVICE_DIRECTORY: &str = "/mnt/system/system/bin/servicemanager";
+
 /// Start the recovery's own logd where it needs libraries of the installed
 /// system, make the phone's firmware reachable to its drivers, mount the
 /// partitions its own programs and drivers use where it mounts them, load
@@ -547,11 +555,17 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
     skyward_binder::driver::mount().context("mount the binder driver's filesystem")?;
     // The recovery's init leaves the service directory stopped; the
     // phone's own programs register with it, and the directory has to be
-    // told what they are before they start.
-    if crate::services::running("/system/bin/servicemanager").is_none() {
-        skyward_sys::set_prop("ctl.start", "servicemanager").context("start the service directory")?;
-        skyward_sys::wait_prop("init.svc.servicemanager", "running", std::time::Duration::from_secs(5))
-            .context("wait for the service directory")?;
+    // told what they are before they start. A recovery may carry none of
+    // its own, as pearl's does: the installed system's is started below,
+    // once the loader its programs ask for is in place.
+    let mut directory = crate::services::running(SERVICE_DIRECTORY).is_some();
+    if !directory && std::path::Path::new(SERVICE_DIRECTORY).is_file() {
+        match skyward_sys::set_prop("ctl.start", "servicemanager")
+            .and_then(|()| skyward_sys::wait_prop("init.svc.servicemanager", "running", std::time::Duration::from_secs(5)))
+        {
+            Ok(()) => directory = true,
+            Err(e) => skyward_sys::kmsg(&format!("the recovery's own service directory did not start: {e:#}"))?,
+        }
     }
     let nodes = skyward_sys::ueventd::apply()?;
     skyward_sys::kmsg(&format!("{nodes} device nodes given the owner their phone describes"))?;
@@ -628,13 +642,60 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
     if let Some(dir) = &libraries {
         skyward_sys::kmsg(&format!("the phone's own libraries are at {}", dir.display()))?;
     }
+    if !directory {
+        start_installed_directory(libraries.as_deref())?;
+    }
     services::start(&services, libraries.as_deref())?;
-    let steps = found.context("make out from the phone's partitions how its keys are used")?;
+    let mut steps = found.context("make out from the phone's partitions how its keys are used")?;
+    if !directory {
+        // The programs register with the installed system's directory, and
+        // load the libraries it speaks to: the installed system's before
+        // the recovery's and the vendor interface's.
+        keys::fit_libraries(&mut steps);
+    }
     for line in keys::describe(&steps) {
         skyward_sys::kmsg(&format!("for the phone's keys: {}", line.replace("\n  ", ", ")))?;
     }
     keys::start(&steps)?;
     agree_on_the_notes_key(&registering)
+}
+
+/// Start the installed system's service directory, whose programs are built
+/// against the loader the recovery puts in place first: a recovery may carry
+/// none of its own, as pearl's does.
+#[cfg(target_os = "android")]
+fn start_installed_directory(libraries: Option<&Path>) -> Result<()> {
+    let service = skyward_config::Service {
+        path: INSTALLED_SERVICE_DIRECTORY.into(),
+        args: Vec::new(),
+        libraries: vec![
+            "/mnt/system/system/lib64/bootstrap".into(),
+            "/mnt/system/system/lib64".into(),
+            "/mnt/system_ext/lib64".into(),
+        ],
+        oneshot: false,
+        ready_property: None,
+        ready_service: None,
+        registers: Vec::new(),
+        ready_hardware_service: None,
+        when: None,
+        user: Some("system".into()),
+        groups: vec!["system".into(), "readproc".into()],
+        capabilities: Vec::new(),
+    };
+    crate::services::start(std::slice::from_ref(&skyward_programs::secure::Started::from(service)), libraries)?;
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while crate::services::running(INSTALLED_SERVICE_DIRECTORY).is_none() {
+        if std::time::Instant::now() >= until {
+            anyhow::bail!("{INSTALLED_SERVICE_DIRECTORY} does not run");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    }
+    // It becomes the driver's context manager just after it starts, and
+    // what registers with it does so once it has.
+    std::thread::sleep(std::time::Duration::from_millis(200));
+    skyward_sys::kmsg("the installed system's service directory is up")?;
+    Ok(())
 }
 
 /// The folder the recovery's own programs load their libraries from.

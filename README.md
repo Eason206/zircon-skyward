@@ -78,7 +78,7 @@ read and set properties.
 
 ### Other features
 
-- Reboot to system, recovery, fastboot, bootloader or EDL, and switch slots
+- Reboot to system, recovery, fastboot or bootloader, and switch slots
 - Light and dark themes; Simplified Chinese, Traditional Chinese and English
 
 ### Without a system
@@ -210,6 +210,7 @@ target/release/skyward-pack recovery \
   --font resources/fonts/MiSansVF.ttf \
   --mono resources/fonts/KirkMono-Regular.ttf \
   --mono-license resources/fonts/KirkMono-OFL.txt \
+  --add /skyward/avatar.png=resources/avatar.png \
   --out target/skyward-pearl.img
 ```
 

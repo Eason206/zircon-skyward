@@ -126,8 +126,6 @@ pub enum Power {
     /// boots it.
     Fastboot,
     Bootloader,
-    /// Qualcomm emergency download mode.
-    Edl,
     Off,
 }
 
@@ -138,7 +136,6 @@ impl Power {
             "recovery" => Power::Recovery,
             "fastboot" => Power::Fastboot,
             "bootloader" => Power::Bootloader,
-            "edl" => Power::Edl,
             "off" => Power::Off,
             _ => return None,
         })
@@ -151,7 +148,6 @@ impl Power {
             Power::Recovery => "reboot,recovery",
             Power::Fastboot => "reboot,fastboot",
             Power::Bootloader => "reboot,bootloader",
-            Power::Edl => "reboot,edl",
             Power::Off => "shutdown,",
         }
     }
@@ -386,7 +382,6 @@ mod tests {
             ("recovery", "reboot,recovery"),
             ("fastboot", "reboot,fastboot"),
             ("bootloader", "reboot,bootloader"),
-            ("edl", "reboot,edl"),
             ("off", "shutdown,"),
         ] {
             assert_eq!(Power::parse(name).unwrap().command(), cmd);

@@ -4,7 +4,7 @@
 //! them, so no phone is told of them by hand, and a system that names them
 //! otherwise after an update is followed as it is.
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use skyward_config::Service;
 use skyward_programs::naming::{self, Does};
 use skyward_programs::phone::{self, Partition, Phone, PARTITIONS};
@@ -89,27 +89,64 @@ pub fn programs(steps: &[Step]) -> Vec<Service> {
     secure::programs(steps).into_iter().map(|started| started.service.clone()).collect()
 }
 
+/// Give each program of `steps` the installed system's folders first among
+/// those its libraries are looked for in, where the recovery runs the
+/// installed system's directory: what registers with that directory has to
+/// load the libraries it speaks to, before the recovery's own and the
+/// vendor interface's, whose binder is older than the one it was built
+/// with.
+pub fn fit_libraries(steps: &mut [Step]) {
+    for step in steps {
+        if let Step::Start(program) = step {
+            program.service.libraries.sort_by_key(|path| !path.starts_with("/mnt/system/"));
+        }
+    }
+}
+
 /// Whether the recovery serves the secure element service among `steps`.
 pub fn serves_elements(steps: &[Step]) -> bool {
     steps.contains(&Step::ServeElements)
 }
 
-/// Do `steps` in order: start each program and wait until it is ready,
-/// and serve the secure element service where it stands among them, which
-/// is after the secure elements' own services have registered and before
-/// the weaver that reaches its secure element through it starts. Each
-/// program names every folder its libraries are looked for in.
+/// Do `steps`, each on its own: start each program and wait until it is
+/// ready, and serve the secure element service where it stands among them,
+/// which is after the secure elements' own services have registered and
+/// before the weaver that reaches its secure element through it starts.
+/// Each program names every folder its libraries are looked for in.
+///
+/// The phone's own init starts all of these without one holding up
+/// another, and so does this: a program that does not come up is said so
+/// and the rest are done anyway, the boot control among them, which the
+/// pages need for the slots whether or not the phone's secure world comes
+/// up. Why any did not is given at the end.
 pub fn start(steps: &[Step]) -> Result<()> {
+    let mut failed = Vec::new();
     for step in steps {
-        match step {
-            Step::Start(program) => crate::services::start(std::slice::from_ref(program.as_ref()), None)?,
-            Step::ServeElements => {
-                let readers = skyward_omapi::start()?;
-                skyward_sys::kmsg(&format!("{} is served, with a reader for each of {} secure elements: {}", skyward_omapi::SERVICE, readers.len(), readers.join(", ")))?;
-            }
+        if let Err(e) = start_one(step) {
+            let name = match step {
+                Step::Start(program) => program.service.path.as_str(),
+                Step::ServeElements => skyward_omapi::SERVICE,
+            };
+            skyward_sys::kmsg(&format!("{name} did not start: {e:#}"))?;
+            failed.push(name.to_string());
         }
     }
-    Ok(())
+    if failed.is_empty() {
+        return Ok(());
+    }
+    bail!("{} did not start", failed.join(", "))
+}
+
+/// Do one of `steps`' steps: start its program and wait until it is ready,
+/// or serve the secure element service.
+fn start_one(step: &Step) -> Result<()> {
+    match step {
+        Step::Start(program) => crate::services::start(std::slice::from_ref(program.as_ref()), None),
+        Step::ServeElements => {
+            let readers = skyward_omapi::start()?;
+            skyward_sys::kmsg(&format!("{} is served, with a reader for each of {} secure elements: {}", skyward_omapi::SERVICE, readers.len(), readers.join(", ")))
+        }
+    }
 }
 
 /// What `steps` are, a line each, as the `keys` command prints them.

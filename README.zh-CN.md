@@ -74,7 +74,7 @@ Skyward 是使用 Rust 编写的 recovery，从零开始编写。
 
 ### 其他功能
 
-- 重启到系统、recovery、fastboot、bootloader 和 EDL，切换启动槽位
+- 重启到系统、recovery、fastboot 和 bootloader，切换启动槽位
 - 浅色和深色模式，简体中文、繁体中文和英文
 
 ### 没有系统时
@@ -154,6 +154,7 @@ target/release/skyward-pack recovery \
   --font resources/fonts/MiSansVF.ttf \
   --mono resources/fonts/KirkMono-Regular.ttf \
   --mono-license resources/fonts/KirkMono-OFL.txt \
+  --add /skyward/avatar.png=resources/avatar.png \
   --out target/skyward-pearl.img
 ```
 

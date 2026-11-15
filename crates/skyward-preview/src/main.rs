@@ -16,7 +16,7 @@ use skyward_ui::app::{
     SystemsWork, TermEnd, Touch, UsbDrive, UsbLink, SCREEN_OFF,
 };
 use skyward_ui::widgets::{self, Bar, Bolt, Cap, Layer};
-use skyward_ui::{editor, fmt, pages, Canvas, Ctx, Fonts, Lang, Theme};
+use skyward_ui::{editor, fmt, pages, Avatar, Canvas, Ctx, Fonts, Lang, Theme};
 use skyward_vab::{BootSlots, FailureCode, Hold, Slot, SnapshotState, Standing};
 use std::fs::File;
 use std::io::BufWriter;
@@ -33,6 +33,48 @@ static LANG: OnceLock<Lang> = OnceLock::new();
 
 fn lang() -> Lang {
     *LANG.get().expect("the language is chosen before any page is drawn")
+}
+
+/// The device configuration the pages are drawn for, read once.
+static CONFIG: OnceLock<DeviceConfig> = OnceLock::new();
+
+fn config() -> &'static DeviceConfig {
+    CONFIG.get_or_init(|| {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../devices/pearl.toml");
+        DeviceConfig::load(&path).unwrap_or_else(|e| panic!("read {}: {e:#}", path.display()))
+    })
+}
+
+/// The picture the device card shows in its circle, where the repository
+/// carries one.
+static AVATAR: OnceLock<Option<Avatar>> = OnceLock::new();
+
+fn avatar() -> Option<&'static Avatar> {
+    AVATAR
+        .get_or_init(|| {
+            let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../resources/avatar.png");
+            match Avatar::load(&path) {
+                Ok(avatar) => Some(avatar),
+                Err(e) => {
+                    eprintln!("the device card's picture does not read: {e:#}");
+                    None
+                }
+            }
+        })
+        .as_ref()
+}
+
+/// An app as the phone's own build shows it: the status bar placed as its
+/// overlays place it, and the device card's picture where it is carried.
+fn new_app(screen: Screen, w: u32, h: u32, ppd: f32) -> App {
+    let mut app = App::new(screen, w, h, ppd);
+    if let Some(bar) = &config().display.status_bar {
+        app.fit_status_bar(bar.height, bar.top, bar.bottom, bar.corner, bar.start, bar.end);
+    }
+    if let Some(picture) = avatar() {
+        app.set_avatar(picture.clone());
+    }
+    app
 }
 
 /// What a shell in the recovery writes for a few commands, colours and all.
@@ -143,7 +185,7 @@ fn main() -> Result<()> {
         eprintln!("axis {tag}: {min}..{max} (default {def})");
     }
 
-    let cfg = DeviceConfig::load(root.join("devices/pearl.toml"))?;
+    let cfg = config();
     let (w, h) = (cfg.display.width, cfg.display.height);
     let ppd = cfg.display.density as f32 / 160.0;
     let light = Theme::light(w, h, ppd);
@@ -162,7 +204,7 @@ fn main() -> Result<()> {
         _ => {}
     }
 
-    let info = pearl(&cfg);
+    let info = pearl(cfg);
     let pending = DeviceInfo { snapshot: SnapshotState::Snapshotted, ..info.clone() };
     let pattern = Data::Locked { user: 0, keys: Keys::Pattern, checking: false };
     // Whole pages, the way a long screenshot shows them. The About page's
@@ -182,7 +224,7 @@ fn main() -> Result<()> {
         ("13-screen-off-light", Screen::ScreenOff, false, &info, Data::Open, &[]),
     ];
     for (name, screen, dark, info, data, pattern) in shots {
-        let mut app = App::new(screen, w, h, ppd);
+        let mut app = new_app(screen, w, h, ppd);
         app.state.lang = lang;
         app.state.dark = dark;
         app.state.data = data;
@@ -1129,7 +1171,7 @@ fn main() -> Result<()> {
     let battery = info.battery.clone().map(|b| Battery { level: 12, charge: Charge::Discharging, ..b });
     let wanting = DeviceInfo { battery, snapshot: SnapshotState::Snapshotted, ..info.clone() };
     for (name, dark) in [("188-home-notices-light", false), ("189-home-notices-dark", true)] {
-        let mut app = App::new(Screen::Home, w, h, ppd);
+        let mut app = new_app(Screen::Home, w, h, ppd);
         app.state.lang = lang;
         app.state.dark = dark;
         app.set_boot_slots(Ok(BootSlots { active: Slot::A, bootable: [true, true], successful: [true, true] }));
@@ -1493,7 +1535,7 @@ fn skyward_online(app: &mut App) {
 /// A page as most previews show it: on a phone whose data partition is
 /// open, its owner's own files with it.
 fn opened(screen: Screen, w: u32, h: u32, ppd: f32) -> App {
-    let mut app = App::new(screen, w, h, ppd);
+    let mut app = new_app(screen, w, h, ppd);
     app.state.lang = lang();
     app.state.data = Data::Open;
     app
@@ -1513,7 +1555,7 @@ fn whole_page(app: &mut App, f: &Fonts, info: &DeviceInfo) -> Canvas {
         fold.draw(&mut c, &t, &widgets::search_words(&t, f, fold.bar, fold.hint), 0.0);
     }
     if let Some(rows) = &frame.rows {
-        let cx = Ctx { t: &t, f, info, state: &state, term: None, band: None };
+        let cx = Ctx { t: &t, f, info, state: &state, avatar: avatar(), term: None, band: None };
         for k in 0..rows.count() {
             let mut row = Canvas::new(c.w, (rows.edges[k + 1] - rows.edges[k]) as u32);
             pages::row(screen, &cx, k, &mut row);

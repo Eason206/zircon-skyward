@@ -3,6 +3,7 @@
 //! page's own types, methods and tests are in the module named for it.
 
 use crate::canvas::{Canvas, Run};
+use crate::avatar::Avatar;
 use crate::charge;
 use crate::color::Rgba;
 use crate::editor::{self, Editor};
@@ -20,7 +21,7 @@ use crate::sprite::{Blurs, Sprite};
 use crate::search;
 use crate::settings::Settings;
 use crate::term::{self, Term, TermKey};
-use crate::theme::Theme;
+use crate::theme::{StatusBarPlace, Theme};
 use crate::tr;
 use crate::widgets::{self, Bar, Bolt, Cap, Layer, WlanMark};
 use skyward_info::DeviceInfo;
@@ -1189,6 +1190,12 @@ pub struct App {
     backdrop: Option<Canvas>,
     /// How round the screen's corners are, in pixels.
     corners: f32,
+    /// Where the status bar's contents stand, where the phone's own overlays
+    /// place them otherwise than the pages' defaults.
+    status_bar: Option<StatusBarPlace>,
+    /// The picture the home page's device card shows in its circle, where
+    /// the recovery carries one.
+    avatar: Option<Avatar>,
     dirty: bool,
     w: u32,
     h: u32,
@@ -1255,6 +1262,8 @@ impl App {
             cols: 0,
             backdrop: None,
             corners: 0.0,
+            status_bar: None,
+            avatar: None,
             dirty: true,
             w,
             h,
@@ -1268,12 +1277,32 @@ impl App {
         self.corners = radius;
     }
 
+    /// Place the status bar's contents as the phone's own overlays do, in
+    /// pixels: the bar's height, the padding at its top and bottom, the
+    /// space its contents keep from the screen's rounded corners, and the
+    /// padding they take at their own ends.
+    pub fn fit_status_bar(&mut self, height: f32, top: f32, bottom: f32, corner: f32, start: f32, end: f32) {
+        self.status_bar = Some(StatusBarPlace { x: corner + start, right: corner + end, cy: top + (height - top - bottom) / 2.0 });
+    }
+
+    /// The picture the home page's device card shows in its circle.
+    pub fn set_avatar(&mut self, avatar: Avatar) {
+        self.avatar = Some(avatar);
+    }
+
     pub fn theme(&self) -> Theme {
-        if self.state.dark {
+        let mut t = if self.state.dark {
             Theme::dark(self.w, self.h, self.px_per_dp)
         } else {
             Theme::light(self.w, self.h, self.px_per_dp)
+        };
+        if let Some(bar) = self.status_bar {
+            t.m.status_x = bar.x;
+            t.m.status_right = bar.right;
+            t.m.status_bolt_right = bar.right;
+            t.m.status_cy = bar.cy;
         }
+        t
     }
 
     pub fn screen(&self) -> Screen {

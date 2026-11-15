@@ -147,6 +147,17 @@ impl Metrics {
     }
 }
 
+/// Where the status bar's contents stand, in pixels, where the phone's own
+/// overlays place them otherwise than the pages' defaults: the clock's
+/// left edge, the right edge the battery or its bolt ends at, and the line
+/// both are centred on.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct StatusBarPlace {
+    pub x: f32,
+    pub right: f32,
+    pub cy: f32,
+}
+
 #[derive(Clone, Copy)]
 pub struct Theme {
     pub pal: Palette,

@@ -5,6 +5,7 @@ use crate::app::{
     BACKUP_PARTS, DATA_ERASED, DATA_PARTITION, DOWNLOADS, FASTBOOT_CHOICES, SCREEN_OFF, TARGETS, TIME_ZONES, USB_DRIVE_UNREADABLE,
     USB_DRIVE_WANTED, WIPES, installs, starting,
 };
+use crate::avatar::Avatar;
 use crate::canvas::Canvas;
 use crate::color::Rgba;
 use crate::editor;
@@ -45,6 +46,9 @@ pub struct Ctx<'a> {
     pub f: &'a Fonts,
     pub info: &'a DeviceInfo,
     pub state: &'a State,
+    /// The picture the device card shows in its circle, where the recovery
+    /// carries one.
+    pub avatar: Option<&'a Avatar>,
     /// The shell the terminal page shows, once one has started.
     pub term: Option<&'a Term>,
     /// The part of the page to draw; all of it if none is given. The page
@@ -146,12 +150,11 @@ pub fn confirm_label(which: Confirm, s: &State) -> (&'static str, bool) {
 pub const HOME_TITLE: &str = "Skyward";
 pub const SEARCH_HINT: Text = ["搜索功能与分区", "搜尋功能與分割區", "Search features and partitions"];
 
-const REBOOT_TARGETS: [(Text, Option<Text>); 6] = [
+const REBOOT_TARGETS: [(Text, Option<Text>); 5] = [
     (["系统", "系統", "System"], None),
     (["恢复模式", "復原模式", "Recovery"], None),
     (["Fastboot"; 3], Some(["用户空间 fastbootd", "使用者空間 fastbootd", "Userspace fastbootd"])),
     (["Bootloader"; 3], None),
-    (["EDL"; 3], Some(["高通紧急下载模式", "高通緊急下載模式", "Qualcomm emergency download"])),
     (["关机", "關機", "Power off"], None),
 ];
 
@@ -258,7 +261,7 @@ pub fn home(cx: &Ctx) -> Frame {
         rows.push(Row::new(l.pick(SECOND_FAILED)).icon(RED, Icon::Systems).subtitle(why).trail(Trail::Arrow));
         opens.push(Some(Action::Open(Screen::Systems)));
     }
-    let card = widgets::device_card(&mut c, t, f, y, &i.model, &sub, &rows);
+    let card = widgets::device_card(&mut c, t, f, y, &i.model, &sub, cx.avatar, &rows);
     out.push(Hit { rect: card.rows[0], action: Action::Open(Screen::About) });
     out.extend(card.rows[1..].iter().zip(&opens).filter_map(|(&rect, open)| open.map(|action| Hit { rect, action })));
     y = card.bottom + t.m.card_gap;

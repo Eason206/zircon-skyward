@@ -33,6 +33,19 @@ corner_radius = 94
 # MediaTek's display driver tears at 144 Hz; the panel stays at the 60 Hz
 # mode it comes up in.
 fastest_refresh = false
+# The status bar as the two device overlays in /product/overlay give it:
+# DevicesAndroidOverlay its height, and DevicesOverlay the padding at its
+# top and bottom and the inset that keeps its contents clear of the
+# screen's rounded corners. The start is what MIUI's own SystemUI adds to
+# that inset for the contents and the clock's 3 dp margin, and the end what
+# it adds for the icons at the other side.
+[display.status_bar]
+height = 122
+top = 36
+bottom = 22
+corner = 51
+start = 13
+end = 4
 
 [modules]
 # The kernel's own modules are in the vendor_boot ramdisk under

@@ -81,26 +81,34 @@ pub fn offering(names: &[String]) -> Result<String> {
             continue;
         }
         told.push(name);
-        let service = Described::named(name)?;
-        match (service.kind, &service.version) {
-            // The older kind is named at its version, and reached over the
-            // directory for hardware services rather than this one.
-            (Kind::Hidl, Some(version)) => {
-                out.push_str("    <hal format=\"hidl\">\n");
-                out.push_str(&format!("        <name>{}</name>\n", service.package));
-                out.push_str("        <transport>hwbinder</transport>\n");
-                out.push_str(&format!("        <fqname>@{version}::{}/{}</fqname>\n", service.interface, service.instance));
-                out.push_str("    </hal>\n");
-            }
-            _ => {
-                out.push_str("    <hal format=\"aidl\">\n");
-                out.push_str(&format!("        <name>{}</name>\n", service.package));
-                out.push_str(&format!("        <fqname>{}/{}</fqname>\n", service.interface, service.instance));
-                out.push_str("    </hal>\n");
-            }
-        }
+        out.push_str(&hal(name)?);
     }
     out.push_str("</manifest>\n");
+    Ok(out)
+}
+
+/// The `<hal>` entry a description tells of the service `name` with, alone:
+/// the newer kind by its package and its interface, the older at its
+/// version, which it is reached by over the directory for hardware
+/// services rather than the one for these.
+pub fn hal(name: &str) -> Result<String> {
+    let service = Described::named(name)?;
+    let mut out = String::new();
+    match (service.kind, &service.version) {
+        (Kind::Hidl, Some(version)) => {
+            out.push_str("    <hal format=\"hidl\">\n");
+            out.push_str(&format!("        <name>{}</name>\n", service.package));
+            out.push_str("        <transport>hwbinder</transport>\n");
+            out.push_str(&format!("        <fqname>@{version}::{}/{}</fqname>\n", service.interface, service.instance));
+            out.push_str("    </hal>\n");
+        }
+        _ => {
+            out.push_str("    <hal format=\"aidl\">\n");
+            out.push_str(&format!("        <name>{}</name>\n", service.package));
+            out.push_str(&format!("        <fqname>{}/{}</fqname>\n", service.interface, service.instance));
+            out.push_str("    </hal>\n");
+        }
+    }
     Ok(out)
 }
 

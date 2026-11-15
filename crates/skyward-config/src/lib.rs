@@ -15,6 +15,9 @@ pub mod ramdisk {
     /// The monospaced typeface's licence, which travels with every copy of
     /// it.
     pub const MONO_LICENSE: &str = "skyward/KirkMono-OFL.txt";
+    /// The picture the device card shows in its circle, where the recovery
+    /// carries one; without it the card shows the phone's outline.
+    pub const AVATAR: &str = "skyward/avatar.png";
     /// The recovery service binary init starts.
     pub const RECOVERY: &str = "system/bin/recovery";
     /// The first program of a system installed beside the installed one,
@@ -356,9 +359,40 @@ pub struct Display {
     /// sliding over another rounds its leading corners to it.
     #[serde(default)]
     pub corner_radius: u32,
+    /// The status bar as the phone's own overlays describe it, where the
+    /// pages should place its contents as the installed system does.
+    #[serde(default)]
+    pub status_bar: Option<StatusBar>,
     /// Whether the panel is switched to its fastest refresh once it is up.
     #[serde(default = "default_true")]
     pub fastest_refresh: bool,
+}
+
+/// The status bar's measurements as the phone's own overlays give them, in
+/// pixels: the bar's height, the padding at its top and bottom, the space
+/// its contents keep from the screen's rounded corners, and the padding
+/// they take at their own ends.
+#[derive(Debug, Clone, Copy, Deserialize)]
+pub struct StatusBar {
+    /// `status_bar_height_portrait`, from the framework's overlay.
+    pub height: f32,
+    /// `status_bar_padding_top`, from the SystemUI overlay.
+    #[serde(default)]
+    pub top: f32,
+    /// `status_bar_padding_bottom`, from the SystemUI overlay.
+    #[serde(default)]
+    pub bottom: f32,
+    /// `rounded_corner_content_padding`, from the SystemUI overlay: the
+    /// inset that keeps the contents clear of the screen's corners.
+    #[serde(default)]
+    pub corner: f32,
+    /// `status_bar_padding_start`, and what the contents add to it at their
+    /// left, such as the clock's own margin.
+    #[serde(default)]
+    pub start: f32,
+    /// `status_bar_padding_end`.
+    #[serde(default)]
+    pub end: f32,
 }
 
 #[derive(Debug, Clone, Deserialize)]

@@ -18,7 +18,7 @@ use crate::wlan;
 use anyhow::{anyhow, ensure, Context, Result};
 use skyward_block::fsck::Fixed;
 use skyward_block::{fstab, mount, probe};
-use skyward_config::{DeviceConfig, Service};
+use skyward_config::{ramdisk, DeviceConfig, Service};
 use skyward_crypto::data::{Closed, Opened};
 use skyward_install::asked::{self, Needs};
 use skyward_install::{Detach, Installer, Options};
@@ -42,7 +42,7 @@ use skyward_ui::app::{
 };
 use skyward_ui::settings::Keeper;
 use skyward_ui::surface::kms::KmsSurface;
-use skyward_ui::{Canvas, Fonts, Lang, Surface};
+use skyward_ui::{Avatar, Canvas, Fonts, Lang, Surface};
 use skyward_vab::{Merge, Standing};
 use std::collections::{BTreeSet, VecDeque};
 use std::fs;
@@ -207,7 +207,6 @@ fn power(target: Target) -> Result<()> {
         Target::Recovery => Power::Recovery,
         Target::Fastboot => Power::Fastboot,
         Target::Bootloader => Power::Bootloader,
-        Target::Edl => Power::Edl,
         Target::PowerOff => Power::Off,
     })
 }
@@ -1283,7 +1282,16 @@ impl<'a> Pages<'a> {
         let inputs = Inputs::open(w, h, cfg.touch.writes.clone())?;
         let started = Instant::now();
         let control = Control::open()?;
-        let haptics = cfg.haptics.as_ref().map(Haptics::open).transpose()?;
+        let haptics = match cfg.haptics.as_ref() {
+            Some(cfg) => match Haptics::open(cfg) {
+                Ok(haptics) => Some(haptics),
+                Err(e) => {
+                    skyward_sys::kmsg(&format!("haptics not started: {e:#}"))?;
+                    None
+                }
+            },
+            None => None,
+        };
         let backlight = Backlight::open()?;
         let first = match &request.work {
             Work::Fastboot => Screen::Fastboot,
@@ -1303,6 +1311,19 @@ impl<'a> Pages<'a> {
         };
         let mut app = App::new(first, w, h, cfg.display.density as f32 / 160.0);
         app.set_screen_corners(cfg.display.corner_radius as f32);
+        if let Some(bar) = &cfg.display.status_bar {
+            app.fit_status_bar(bar.height, bar.top, bar.bottom, bar.corner, bar.start, bar.end);
+        }
+        // The picture the home page's device card shows, where the recovery
+        // carries one; a phone whose picture does not read still shows the
+        // phone's outline.
+        let picture = Path::new("/").join(ramdisk::AVATAR);
+        if picture.is_file() {
+            match Avatar::load(&picture) {
+                Ok(avatar) => app.set_avatar(avatar),
+                Err(e) => skyward_sys::kmsg(&format!("the device card's picture does not read: {e:#}"))?,
+            }
+        }
         // The settings kept from the starts before are back before the first
         // frame, and before file transfer starts with its switch and the time
         // zone. The pages speak the language chosen then, or else the one the
