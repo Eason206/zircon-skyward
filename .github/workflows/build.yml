@@ -34,6 +34,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup
       - name: Native workspace lint
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
@@ -45,13 +47,19 @@ jobs:
         run: |
           bash -n scripts/env.sh scripts/setup-env.sh scripts/build-zircon.sh
           python3 - <<'PY'
-          import ast, json, tomllib
+          import ast, json, subprocess, tomllib
           from pathlib import Path
           ast.parse(Path("scripts/verify-zircon.py").read_text())
           config = tomllib.loads(Path("devices/zircon.toml").read_text())
           stock = json.loads(Path("devices/zircon-stock.json").read_text())
           assert config["stock"]["version"] == stock["version"]
           assert config["stock"]["recovery"] == stock["vendor_boot"]["sha256"]
+          upstream = tomllib.loads(Path("UPSTREAM.toml").read_text())["upstream"]
+          assert upstream["repository"] == "https://github.com/kirklin/skyward"
+          assert len(upstream["revision"]) == 40
+          version = tomllib.loads(Path("Cargo.toml").read_text())["workspace"]["package"]["version"]
+          assert version.startswith(upstream["version"] + "-alpha.")
+          subprocess.run(["git", "merge-base", "--is-ancestor", upstream["revision"], "HEAD"], check=True)
           PY
 
   tools:

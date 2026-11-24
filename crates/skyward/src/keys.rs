@@ -4,12 +4,13 @@
 //! them, so no phone is told of them by hand, and a system that names them
 //! otherwise after an update is followed as it is.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use skyward_config::Service;
 use skyward_programs::naming::{self, Does};
 use skyward_programs::phone::{self, Partition, Phone, PARTITIONS};
-use skyward_programs::secure::{self, Step};
-use std::path::Path;
+use skyward_programs::secure::{self, Driver, Step};
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 /// What the partitions of an installed system say that the recovery acts
 /// on.
@@ -108,54 +109,59 @@ pub fn serves_elements(steps: &[Step]) -> bool {
     steps.contains(&Step::ServeElements)
 }
 
-/// Do `steps`, each on its own: start each program and wait until it is
-/// ready, and serve the secure element service where it stands among them,
-/// which is after the secure elements' own services have registered and
-/// before the weaver that reaches its secure element through it starts.
-/// Each program names every folder its libraries are looked for in.
-///
-/// The phone's own init starts all of these without one holding up
-/// another, and so does this: a program that does not come up is said so
-/// and the rest are done anyway, the boot control among them, which the
-/// pages need for the slots whether or not the phone's secure world comes
-/// up. Why any did not is given at the end.
-pub fn start(steps: &[Step]) -> Result<()> {
-    let mut failed = Vec::new();
-    for step in steps {
-        if let Err(e) = start_one(step) {
-            let name = match step {
-                Step::Start(program) => program.service.path.as_str(),
-                Step::ServeElements => skyward_omapi::SERVICE,
-            };
-            skyward_sys::kmsg(&format!("{name} did not start: {e:#}"))?;
-            failed.push(name.to_string());
-        }
+/// How long a driver may take to have its node made once its module is
+/// loaded: it makes its device as it takes its chip up, and ueventd makes
+/// the node once the kernel has told it of the device.
+const NODE_MADE: Duration = Duration::from_secs(5);
+
+/// Load the module of `driver` from the first of the `modules` folders
+/// that has it, wait for the node it makes, and give the node the owner
+/// and permissions the phone's own rules give it, which the secure
+/// element's service opens it by.
+fn drive(driver: &Driver, modules: &[PathBuf]) -> Result<()> {
+    for path in skyward_modules::load(modules, &[driver.module.to_string()])? {
+        skyward_sys::kmsg(&format!("loaded {}", path.display()))?;
     }
-    if failed.is_empty() {
-        return Ok(());
-    }
-    bail!("{} did not start", failed.join(", "))
+    skyward_sys::wait_file(Path::new(driver.node), NODE_MADE).with_context(|| format!("wait for the node {} makes", driver.module))?;
+    skyward_sys::ueventd::apply_to(driver.node)?;
+    skyward_sys::kmsg(&format!("{} is given the owner its phone describes", driver.node))
 }
 
-/// Do one of `steps`' steps: start its program and wait until it is ready,
-/// or serve the secure element service.
-fn start_one(step: &Step) -> Result<()> {
-    match step {
-        Step::Start(program) => crate::services::start(std::slice::from_ref(program.as_ref()), None),
-        Step::ServeElements => {
-            let readers = skyward_omapi::start()?;
-            skyward_sys::kmsg(&format!("{} is served, with a reader for each of {} secure elements: {}", skyward_omapi::SERVICE, readers.len(), readers.join(", ")))
+/// Do `steps` in order: start each program and wait until it is ready,
+/// load the driver of the chip a secure element is in where one stands
+/// among them, from the `modules` folders, and serve the secure element
+/// service where it stands among them, which is after the secure elements'
+/// own services have registered and before the weaver that reaches its
+/// secure element through it starts. Each program names every folder its
+/// libraries are looked for in.
+pub fn start(steps: &[Step], modules: &[PathBuf]) -> Result<()> {
+    for step in steps {
+        match step {
+            Step::Start(program) => crate::services::start(std::slice::from_ref(program.as_ref()), None)?,
+            Step::Drive(driver) => drive(driver, modules)?,
+            Step::ServeElements => {
+                let readers = skyward_omapi::start()?;
+                skyward_sys::kmsg(&format!("{} is served, with a reader for each of {} secure elements: {}", skyward_omapi::SERVICE, readers.len(), readers.join(", ")))?;
+            }
         }
     }
+    Ok(())
 }
 
 /// What `steps` are, a line each, as the `keys` command prints them.
 pub fn describe(steps: &[Step]) -> Vec<String> {
     let mut lines = Vec::new();
     for step in steps {
-        let Step::Start(program) = step else {
-            lines.push(format!("serve {}", skyward_omapi::SERVICE));
-            continue;
+        let program = match step {
+            Step::Start(program) => program,
+            Step::Drive(driver) => {
+                lines.push(format!("load {}, which makes {}", driver.module, driver.node));
+                continue;
+            }
+            Step::ServeElements => {
+                lines.push(format!("serve {}", skyward_omapi::SERVICE));
+                continue;
+            }
         };
         let s = &program.service;
         let mut line = format!("start {}", s.path);

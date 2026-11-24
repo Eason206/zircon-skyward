@@ -11,6 +11,7 @@ notices remain in the source and Git history.
 ## Upstream / 上游
 
 - Original Skyward / 原始项目: [kirklin/skyward](https://github.com/kirklin/skyward).
+- Current source baseline / 当前同步基线: Skyward 0.5.1, commit `43ec6da19402cf344b966bbb8c85c04fd2ffdcad`; see [UPSTREAM.toml](UPSTREAM.toml).
 - Reference port / 本次参考: [mytiantian001/pearl-skyward](https://github.com/mytiantian001/pearl-skyward), commit `d1d349481248e32a43bed7a1bfcd1124840beba8`.
 - Intermediate fork / 中间分支: [BkaNeko/xaga-skyward](https://github.com/BkaNeko/xaga-skyward).
 - zircon port maintainer / zircon 适配维护者: [Eason206](https://github.com/Eason206).

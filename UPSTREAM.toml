@@ -1,0 +1,7 @@
+# Full source baseline of this zircon build.
+[upstream]
+repository = "https://github.com/kirklin/skyward"
+branch = "main"
+revision = "43ec6da19402cf344b966bbb8c85c04fd2ffdcad"
+version = "0.5.1"
+synced_on = "2026-11-24"

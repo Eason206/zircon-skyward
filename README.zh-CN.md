@@ -2,15 +2,32 @@
 
 [English](README.md) | **简体中文**
 
-为 **Redmi Note 13 Pro+（`zircon`）** 适配的 Rust 恢复项目 Skyward 实验版。
-首版基于提供的 **OS3.0.305.0.WNOCNXM** 原厂 boot 与 vendor_boot 镜像，
+为 **Redmi Note 13 Pro+（`zircon`）** 适配的 Rust 恢复项目 Skyward 实验版，
+已同步 [kirklin/skyward](https://github.com/kirklin/skyward) 的完整 **0.5.1** 源码。
+镜像基于提供的 **OS3.0.305.0.WNOCNXM** 原厂 boot 与 vendor_boot，
 保留原厂内核、设备树及恢复模式驱动。
 
-**当前版本：`v0.3.3-alpha.1`。已完成编译和离线校验，尚未进行实机启动验证。**
+**当前版本：`v0.5.1-alpha.1`。已完成编译和离线校验，尚未进行实机启动验证。**
 
-[下载实验版](https://github.com/Eason206/zircon-skyward/releases/tag/v0.3.3-alpha.1)
+[下载实验版](https://github.com/Eason206/zircon-skyward/releases/tag/v0.5.1-alpha.1)
 · [编译与验证记录](docs/ZIRCON.zh-CN.md)
 · [设备配置](devices/zircon.toml)
+
+## 上游完整功能
+
+已合并上游 main 分支至 `43ec6da19402cf344b966bbb8c85c04fd2ffdcad`。
+[UPSTREAM.toml](UPSTREAM.toml) 固定本次同步来源；[同步记录](docs/UPSTREAM.md) 列出功能与设备要求。
+
+- 双系统、系统切换、A/B 槽位控制，以及刷入 ROM 后自动重新写入 Skyward。
+- 锁屏密码 FBE 解密、元数据加密，以及未加密数据分区的直接访问。
+- 从内置存储、USB 存储或 ADB 安装 ROM ZIP 和 OTA payload；刷写启动镜像、完整 super、逻辑分区、稀疏镜像及按分区命名的镜像。
+- 系统与 Skyward 在线更新、WLAN 管理、MTP、root ADB 与 fastbootd。
+- 系统、应用数据、内置存储和校准／身份分区备份，以及向新建的数据文件系统恢复备份。
+- 文件管理器、文本编辑器、终端、分区挂载、文件系统修复、清除数据、日志和功能搜索。
+- 电池与设备信息、浅色／深色主题、跟随安装系统的时区，以及 62 个时区的选择。
+- 上游全部 15 种语言：简体中文、繁體中文、English、Türkçe、Русский、Українська、Español、Português (Brasil)、Bahasa Indonesia、Tiếng Việt、Deutsch、Français、Italiano、Polski、日本語。
+
+以上为已同步的功能实现；zircon 的设备可用状态见下表。
 
 ## 设备与范围
 
@@ -37,7 +54,7 @@ Android 版本。输入镜像的标识与哈希记录在 [devices/zircon-stock.j
 | 显示与触摸 | 原厂驱动已准备，实机表现待验证 |
 | ADB 与 MTP | 已包含，实机表现待验证 |
 | Wi-Fi 与震动控制配置 | 本 alpha 暂未启用 |
-| FBE 解密、刷包、备份恢复、双系统 | 保留核心代码，设备验证待完成 |
+| FBE 解密、刷包、备份恢复、双系统 | 已包含完整上游实现，设备验证待完成 |
 
 此 alpha 用于已解锁 Bootloader、固件匹配的设备进行适配测试。目标分区是
 **vendor_boot**；该镜像不能作为内核 boot.img 直接传给 `fastboot boot`。
@@ -50,7 +67,7 @@ Android 版本。输入镜像的标识与哈希记录在 [devices/zircon-stock.j
 `.img`，再核对 ZIP 与镜像哈希：
 
 ```sh
-unzip skyward-v0.3.3-alpha.1-zircon-OS3.0.305.0.WNOCNXM-experimental.zip
+unzip skyward-v0.5.1-alpha.1-zircon-OS3.0.305.0.WNOCNXM-experimental.zip
 shasum -a 256 -c SHA256SUMS
 ```
 
@@ -83,12 +100,12 @@ export ANDROID_NDK_HOME="/path/to/android-ndk-r29"
 
 ## 测试与 CI
 
-发布候选版通过 **878 项工作区测试**，其中包含 **56 项适配相关测试**。
-相关测试与 Clippy 检查命令：
+发布候选版通过 **941 项工作区测试**，包含 zircon 原厂加密条目的回归测试，
+以及上游安装、备份和界面测试。完整测试与 Clippy 检查命令：
 
 ```sh
-cargo test --locked -p skyward-config -p skyward-pack -p skyward-bootimg -p skyward-modules
-cargo clippy --locked -p skyward-config -p skyward-pack --all-targets -- -D warnings
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
 ```
 
 [GitHub Actions](.github/workflows/build.yml) 运行工作区检查并编译恢复工具。
@@ -96,9 +113,10 @@ cargo clippy --locked -p skyward-config -p skyward-pack --all-targets -- -D warn
 
 ## 上游与许可
 
-本次参考 [mytiantian001/pearl-skyward](https://github.com/mytiantian001/pearl-skyward)
+当前同步至 [kirklin/skyward](https://github.com/kirklin/skyward)
+的 `43ec6da19402cf344b966bbb8c85c04fd2ffdcad`（0.5.1）。
+最初 zircon 适配参考 [mytiantian001/pearl-skyward](https://github.com/mytiantian001/pearl-skyward)
 的 `d1d349481248e32a43bed7a1bfcd1124840beba8`。
-原始 Skyward 项目位于 [kirklin/skyward](https://github.com/kirklin/skyward)，
 上游源码历史与版权声明予以保留。zircon 适配由 [Eason206](https://github.com/Eason206) 维护。
 
 Skyward 源码采用 **GPL-3.0-or-later**。完整条款见 [LICENSE](LICENSE)，

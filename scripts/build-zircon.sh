@@ -64,6 +64,7 @@ image, root = map(Path, sys.argv[1:])
 archive = image.with_suffix('.zip')
 workspace = tomllib.loads((root / 'Cargo.toml').read_text())
 config = tomllib.loads((root / 'devices/zircon.toml').read_text())
+upstream = tomllib.loads((root / 'UPSTREAM.toml').read_text())['upstream']
 report = json.loads((image.parent / 'verification.json').read_text())
 version = workspace['workspace']['package']['version']
 repository = 'https://github.com/' + config['skyward']['releases']
@@ -85,6 +86,7 @@ buildinfo = {
     'source_tag': f'v{version}',
     'source_commit': revision,
     'source_worktree_dirty': dirty,
+    'upstream': upstream,
     'source_date_epoch': int(epoch) if epoch else None,
     'build_host': {'os': platform.system(), 'architecture': platform.machine()},
     'rust': command('rustc', '--version'),
@@ -104,10 +106,13 @@ buildinfo = {
 (image.parent / 'BUILDINFO.json').write_text(json.dumps(buildinfo, ensure_ascii=False, indent=2) + '\n')
 source = (f'Skyward for zircon v{version}\nSource / 源码: {repository}/tree/v{version}\n'
           f'Commit / 提交: {revision or "source archive; commit unknown"}\n'
+          f'Upstream / 上游: {upstream["repository"]}/commit/{upstream["revision"]}\n'
+          f'Upstream version / 上游版本: {upstream["version"]}\n'
           'License / 许可: GPL-3.0-or-later; see LICENSE and NOTICE.md.\n')
 (image.parent / 'SOURCE.txt').write_text(source)
 readme = (f'Skyward for zircon v{version} — experimental alpha / 实验版\n'
-          'Stock / 原厂版本: OS3.0.305.0.WNOCNXM\n'
+          f'Stock / 原厂版本: {report["stock_version"]}\n'
+          f'Upstream / 上游: Skyward {upstream["version"]} ({upstream["revision"]})\n'
           'Target / 目标分区: vendor_boot\n'
           'Built and verified offline; not boot-tested on a phone.\n'
           '已编译并通过离线校验，尚未进行实机启动。\n'
@@ -115,7 +120,7 @@ readme = (f'Skyward for zircon v{version} — experimental alpha / 实验版\n'
           'Wi-Fi、震动、FBE 解密及双系统仍需实机验证。\n'
           f'Documentation / 说明: {repository}\n')
 files = [(image.name, image.read_bytes()), ('README.txt', readme.encode('utf-8'))]
-for name in ('README.md', 'README.zh-CN.md', 'LICENSE', 'NOTICE.md', 'docs/ZIRCON.md',
+for name in ('README.md', 'README.zh-CN.md', 'LICENSE', 'NOTICE.md', 'UPSTREAM.toml', 'docs/UPSTREAM.md', 'docs/ZIRCON.md',
              'docs/ZIRCON.zh-CN.md', 'devices/zircon.toml', 'devices/zircon-stock.json',
              'resources/fonts/KirkMono-OFL.txt'):
     files.append((name, (root / name).read_bytes()))

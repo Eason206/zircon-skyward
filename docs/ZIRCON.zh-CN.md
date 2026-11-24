@@ -1,8 +1,8 @@
-# zircon 初版适配与编译
+# zircon 适配、上游同步与编译
 
 [English](ZIRCON.md) | [简体中文](ZIRCON.zh-CN.md)
 
-本项目基于 [mytiantian001/pearl-skyward](https://github.com/mytiantian001/pearl-skyward) 的 `d1d349481248e32a43bed7a1bfcd1124840beba8`，增加 Redmi Note 13 Pro+（zircon）的实验适配。初版使用提供的 OS3.0.305.0.WNOCNXM `boot.img` 和 `vendor_boot.img`。
+本项目为 Redmi Note 13 Pro+（zircon）的实验适配，当前完整同步至 [kirklin/skyward](https://github.com/kirklin/skyward) 的 `43ec6da19402cf344b966bbb8c85c04fd2ffdcad`（0.5.1）。同步范围见 [上游功能记录](UPSTREAM.md)，来源固定在 [UPSTREAM.toml](../UPSTREAM.toml)。最初适配参考 pearl-skyward 的 `d1d349481248e32a43bed7a1bfcd1124840beba8`；构建继续使用提供的 OS3.0.305.0.WNOCNXM `boot.img` 和 `vendor_boot.img`。
 
 设备配置在 [devices/zircon.toml](../devices/zircon.toml)，输入镜像的版本、哈希和头部参数在 [devices/zircon-stock.json](../devices/zircon-stock.json)。构建保留原厂内核，通过替换 vendor_boot 中的 recovery 程序运行 Skyward。
 
@@ -40,7 +40,7 @@ NDK 自带的 clang 用于 Android 交叉编译；打包器由本机 Rust 编译
   --boot /path/to/boot.img
 ```
 
-构建脚本会先核对两份输入的 SHA-256，再编译 `skyward-pack`、ARM64 `skyward` 和静态 `system-init`，然后打包、验证并生成 ZIP。产物在 `out/zircon/`，名称含 `zircon`、原厂版本和 `experimental`，同时输出 `SHA256SUMS`、`verification.json`、`BUILDINFO.json` 与 `SOURCE.txt`。构建读取指定输入，不修改原文件。
+构建脚本会先核对两份输入的 SHA-256，再编译 `skyward-pack`、ARM64 `skyward` 和静态 `system-init`，然后打包、验证并生成 ZIP。产物在 `out/zircon/`，名称含 `zircon`、原厂版本和 `experimental`，同时输出 `SHA256SUMS`、`verification.json`、`BUILDINFO.json` 与 `SOURCE.txt`。构建报告和 ZIP 同时记录上游 0.5.1 的基线。构建读取指定输入，不修改原文件。
 
 手动运行 Cargo 前，在仓库目录执行 `source scripts/env.sh`。环境脚本支持当前的 zsh，也可由构建脚本在 bash 中加载。其他机器可将 NDK 放在常见 SDK 目录，或设置 `ANDROID_NDK_HOME`。
 
@@ -77,11 +77,11 @@ NDK 自带的 clang 用于 Android 交叉编译；打包器由本机 Rust 编译
 - 安装命令链接到 recovery，恢复模式属性已设置，AVB footer 与 vendor_boot 的 SHA-256 描述符一致。
 - ZIP 可完整解压，其中的镜像哈希与裸镜像一致。
 
-初版镜像的离线验证确认 64 MiB 分区打包通过，206 个内核模块及 1117 个保留的原厂条目校验一致。发布候选版通过 878 项主机工作区测试，其中包含以下 56 项适配相关测试：
+镜像离线验证检查 64 MiB 分区布局、206 个内核模块及 1117 个保留的原厂条目。0.5.1 同步版本通过 941 项主机工作区测试，包含 zircon 原厂 fstab 加密识别回归测试和上游功能测试：
 
 ```sh
-cargo test --locked -p skyward-config -p skyward-pack -p skyward-bootimg -p skyward-modules
-cargo clippy --locked -p skyward-config -p skyward-pack --all-targets -- -D warnings
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
 ```
 
 镜像的实际哈希见 `out/zircon/SHA256SUMS`，结构与二进制检查结果见 `out/zircon/verification.json`，源码提交和工具链见 `out/zircon/BUILDINFO.json`。发布附件同时提供这些报告。

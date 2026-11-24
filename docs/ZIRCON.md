@@ -1,11 +1,14 @@
-# zircon build and validation
+# zircon build, upstream sync and validation
 
 [English](ZIRCON.md) | [简体中文](ZIRCON.zh-CN.md)
 
-This is the initial Redmi Note 13 Pro+ (`zircon`) port of Skyward. It is derived
-from `mytiantian001/pearl-skyward` at
-`d1d349481248e32a43bed7a1bfcd1124840beba8` and uses the two locally supplied stock
-images for **OS3.0.305.0.WNOCNXM**. The original kernel stays in boot; Skyward
+This experimental Redmi Note 13 Pro+ (`zircon`) port includes the complete
+Skyward 0.5.1 source from `kirklin/skyward` at
+`43ec6da19402cf344b966bbb8c85c04fd2ffdcad`. [UPSTREAM.toml](../UPSTREAM.toml)
+pins the baseline, and [the sync notes](UPSTREAM.md) list the functionality.
+The initial port used `mytiantian001/pearl-skyward` at
+`d1d349481248e32a43bed7a1bfcd1124840beba8`. Builds continue to use the two supplied
+stock images for **OS3.0.305.0.WNOCNXM**. The original kernel stays in boot; Skyward
 replaces the recovery service inside vendor_boot.
 
 ## Build environment
@@ -92,16 +95,16 @@ WLAN, haptic-control and TEE-helper parameters still need device-specific work.
 - Install command symlinks, recovery properties and the vendor_boot AVB SHA-256 descriptor are correct.
 - ZIP contents are readable and the enclosed image matches the standalone image.
 
-The initial offline check preserved **206 kernel modules** and **1117 stock
-archive entries**. Related unit tests and lints can be run with:
+The offline check covers **206 kernel modules** and **1117 stock
+archive entries**. Full workspace tests and lints can be run with:
 
 ```sh
-cargo test --locked -p skyward-config -p skyward-pack -p skyward-bootimg -p skyward-modules
-cargo clippy --locked -p skyward-config -p skyward-pack --all-targets -- -D warnings
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-Those 56 related tests and all 878 host workspace tests passed for this release
-candidate. Release assets contain
+All **941 host workspace tests** passed for this release candidate, including
+the stock zircon fstab regression and upstream functionality tests. Release assets contain
 `verification.json`, `BUILDINFO.json` and `SHA256SUMS` for the published build.
 
 ## Phone validation

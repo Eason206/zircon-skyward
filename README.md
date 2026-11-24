@@ -3,16 +3,34 @@
 **English** | [简体中文](README.zh-CN.md)
 
 An experimental port of the Rust-based Skyward recovery for **Redmi Note 13
-Pro+ (`zircon`)**. The initial release is built from the supplied
+Pro+ (`zircon`)**, synchronized with the complete **Skyward 0.5.1** source from
+[kirklin/skyward](https://github.com/kirklin/skyward). It is built from the supplied
 **OS3.0.305.0.WNOCNXM** stock boot and vendor_boot images and preserves their
 kernel, device tree and recovery drivers.
 
-**Current release: `v0.3.3-alpha.1`. Built and verified offline; not boot-tested
+**Current release: `v0.5.1-alpha.1`. Built and verified offline; not boot-tested
 on a phone.**
 
-[Download the alpha](https://github.com/Eason206/zircon-skyward/releases/tag/v0.3.3-alpha.1)
+[Download the alpha](https://github.com/Eason206/zircon-skyward/releases/tag/v0.5.1-alpha.1)
 · [Build and validation notes](docs/ZIRCON.md)
 · [Device configuration](devices/zircon.toml)
+
+## Upstream functionality
+
+The full upstream main branch is merged through commit
+`43ec6da19402cf344b966bbb8c85c04fd2ffdcad`. [UPSTREAM.toml](UPSTREAM.toml)
+pins that baseline; [the sync notes](docs/UPSTREAM.md) map the features and device requirements.
+
+- Dual boot, system switching, A/B slot control and automatic recovery restoration after installing a ROM.
+- Screen-lock FBE decryption, metadata encryption and access to data partitions that are kept unencrypted.
+- ROM ZIPs and OTA payloads from internal storage, USB drives or ADB; boot images, whole super images, logical partitions, sparse images and images named after their target partition.
+- System and Skyward online updates, WLAN management, MTP, root ADB and fastbootd.
+- System, application data, internal storage and calibration/identity backups; restoration into a newly created data filesystem.
+- File manager, text editor, terminal, partition mounting, filesystem repair, wiping, logs and feature search.
+- Battery/device information, light and dark themes, installed-system time-zone detection and selection among 62 time zones.
+- All 15 upstream languages: 简体中文, 繁體中文, English, Türkçe, Русский, Українська, Español, Português (Brasil), Bahasa Indonesia, Tiếng Việt, Deutsch, Français, Italiano, Polski and 日本語.
+
+These are the synchronized implementations. Device-specific availability is described below.
 
 ## Device and scope
 
@@ -40,7 +58,7 @@ are recorded in [devices/zircon-stock.json](devices/zircon-stock.json).
 | Display and touch | Stock drivers prepared; phone behavior untested |
 | ADB and MTP | Included; phone behavior untested |
 | Wi-Fi and haptic configuration | Not enabled in this alpha |
-| FBE decryption, flashing, backup/restore and dual boot | Core code retained; device validation pending |
+| FBE decryption, flashing, backup/restore and dual boot | Full upstream implementations included; device validation pending |
 
 This alpha is for port testing on a device with an unlocked bootloader and
 matching stock firmware. The image targets **vendor_boot**; it cannot be passed
@@ -54,7 +72,7 @@ Download the ZIP, `SHA256SUMS`, `verification.json` and `BUILDINFO.json` from
 obtain the 64 MiB `.img` and check both the ZIP and image against SHA256SUMS:
 
 ```sh
-unzip skyward-v0.3.3-alpha.1-zircon-OS3.0.305.0.WNOCNXM-experimental.zip
+unzip skyward-v0.5.1-alpha.1-zircon-OS3.0.305.0.WNOCNXM-experimental.zip
 shasum -a 256 -c SHA256SUMS
 ```
 
@@ -91,12 +109,12 @@ preserved components and remaining device work.
 
 ## Tests and CI
 
-The release candidate passed **878 workspace tests**, including **56 related
-port tests**. The focused test and lint commands are:
+The release candidate passed **941 workspace tests**, including the stock zircon
+encryption regression and the upstream installation, backup and UI tests. The full test and lint commands are:
 
 ```sh
-cargo test --locked -p skyward-config -p skyward-pack -p skyward-bootimg -p skyward-modules
-cargo clippy --locked -p skyward-config -p skyward-pack --all-targets -- -D warnings
+cargo test --locked --workspace
+cargo clippy --locked --workspace --all-targets -- -D warnings
 ```
 
 [GitHub Actions](.github/workflows/build.yml) runs workspace checks and builds
@@ -105,9 +123,10 @@ inputs. Releases attach separately verified builds from those inputs.
 
 ## Credits and license
 
-Derived from [mytiantian001/pearl-skyward](https://github.com/mytiantian001/pearl-skyward)
-at `d1d349481248e32a43bed7a1bfcd1124840beba8`; original Skyward is maintained at
-[kirklin/skyward](https://github.com/kirklin/skyward). Upstream source history and
+Synchronized with [kirklin/skyward](https://github.com/kirklin/skyward)
+at `43ec6da19402cf344b966bbb8c85c04fd2ffdcad` (0.5.1). The initial zircon port
+used [mytiantian001/pearl-skyward](https://github.com/mytiantian001/pearl-skyward)
+at `d1d349481248e32a43bed7a1bfcd1124840beba8`. Upstream source history and
 copyright notices are retained. The zircon port is maintained by
 [Eason206](https://github.com/Eason206).
 

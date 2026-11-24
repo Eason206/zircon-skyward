@@ -173,7 +173,8 @@ enum Cmd {
     },
     /// Set the system clock from the RTC and the offset Android keeps on
     /// persist, as the recovery does when it starts, and print the time in
-    /// China, the first of the time zones the settings offer.
+    /// China, whose zone the clock keeps until the installed system's is
+    /// known or another is chosen.
     #[cfg(target_os = "android")]
     Clock,
     /// Say whether a service has registered with the phone's service
@@ -310,10 +311,11 @@ fn main() -> Result<()> {
         Cmd::Services { config } => {
             let slot = booted_slot()?;
             let props = skyward_info::installed_props(slot)?;
-            let services: Vec<Started> = DeviceConfig::load(&config)?.services.into_iter().filter(|s| s.runs_on(&props)).map(Started::from).collect();
+            let cfg = DeviceConfig::load(&config)?;
+            let services: Vec<Started> = cfg.services.iter().filter(|s| s.runs_on(&props)).cloned().map(Started::from).collect();
             let libraries = secure::libraries()?;
             services::start(&services, libraries.as_deref())?;
-            keys::start(&keys::found(slot, libraries.as_deref())?.steps?)?;
+            keys::start(&keys::found(slot, libraries.as_deref())?.steps?, &module_folders(&cfg)?)?;
             loop {
                 std::thread::park();
             }
@@ -351,7 +353,8 @@ fn main() -> Result<()> {
         #[cfg(target_os = "android")]
         Cmd::Clock => {
             let ms = skyward_sys::clock::set_from_rtc()?;
-            println!("{}", skyward_ui::fmt::datetime(skyward_ui::Lang::En, (ms / 1000) as i64, 0));
+            let china = skyward_ui::app::listed(skyward_ui::app::FIRST_ZONE).context("the first zone is one listed")?;
+            println!("{}", skyward_ui::fmt::datetime(skyward_ui::Lang::En, (ms / 1000) as i64, skyward_ui::fmt::rules(china)));
             Ok(())
         }
         #[cfg(target_os = "android")]
@@ -428,8 +431,13 @@ fn main() -> Result<()> {
         Cmd::Data { credential, close: false } => {
             use skyward_crypto::data;
             let binder = skyward_binder::driver::Binder::open()?;
-            let service = skyward_crypto::keymint::KeyMint::open(&binder)?;
-            let opening = data::open_without_credential(&service)?;
+            // A partition the phone's table has encrypted in no way opens
+            // with no key service.
+            let service = match data::keyed()? {
+                true => Some(skyward_crypto::keymint::KeyMint::open(&binder)?),
+                false => None,
+            };
+            let opening = data::open_without_credential(service.as_ref())?;
             match &opening.mounted {
                 Some(mounted) => {
                     if let Some(checked) = &mounted.checked {
@@ -442,8 +450,8 @@ fn main() -> Result<()> {
             }
             let mut closed = opening.closed;
             let asked = closed.iter().find(|c| !c.made_up).map(|c| c.user);
-            if let (Some(credential), Some(user)) = (&credential, asked) {
-                closed = data::unlock(&service, &closed, user, credential.as_bytes())?;
+            if let (Some(credential), Some(user), Some(service)) = (&credential, asked, &service) {
+                closed = data::unlock(service, &closed, user, credential.as_bytes())?;
             }
             for c in &closed {
                 match &c.why {
@@ -521,10 +529,15 @@ fn lp(super_dev: &Path, slot: Option<u32>) -> Result<()> {
     Ok(())
 }
 
+/// The folders of the module sources the configuration lists, in the
+/// order a module is looked for in them.
+fn module_folders(cfg: &DeviceConfig) -> Result<Vec<PathBuf>> {
+    cfg.modules.sources.iter().map(|s| skyward_modules::source_dir(s)).collect()
+}
+
 /// Load `names` from the module sources the configuration lists.
 fn load_modules(cfg: &DeviceConfig, names: &[String]) -> Result<Vec<PathBuf>> {
-    let dirs = cfg.modules.sources.iter().map(|s| skyward_modules::source_dir(s)).collect::<Result<Vec<_>>>()?;
-    skyward_modules::load(&dirs, names)
+    skyward_modules::load(&module_folders(cfg)?, names)
 }
 
 /// The directory the phone's own programs register with, where a recovery
@@ -594,6 +607,7 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
         skyward_sys::kmsg(&format!("loaded {}", path.display()))?;
     }
     if !cfg.owners.is_empty() {
+        handover::wait_for_nodes(&cfg.owners, std::time::Duration::from_secs(5));
         let given = handover::give(&cfg.owners)?;
         skyward_sys::kmsg(&format!("{} of the phone's own files handed to the accounts its init gives them", given.handed))?;
         if !given.missing.is_empty() {
@@ -656,7 +670,7 @@ fn bring_up(cfg: &DeviceConfig, slot: skyward_vab::Slot, found: Result<keys::Fou
     for line in keys::describe(&steps) {
         skyward_sys::kmsg(&format!("for the phone's keys: {}", line.replace("\n  ", ", ")))?;
     }
-    keys::start(&steps)?;
+    keys::start(&steps, &module_folders(cfg)?)?;
     agree_on_the_notes_key(&registering)
 }
 
@@ -711,12 +725,7 @@ const RECOVERY_LIBRARIES: &str = "/system/lib64";
 #[cfg(target_os = "android")]
 fn start_logd(wanted: &skyward_config::Logd) -> Result<()> {
     for library in &wanted.libraries {
-        let from = Path::new(library);
-        let to = Path::new(RECOVERY_LIBRARIES).join(from.file_name().expect("the configuration names each library's file"));
-        let mut part = to.clone().into_os_string();
-        part.push(".part");
-        std::fs::copy(from, &part).with_context(|| format!("copy {library} to {}", Path::new(&part).display()))?;
-        std::fs::rename(&part, &to).with_context(|| format!("put {} in place", to.display()))?;
+        services::place(Path::new(library), Path::new(RECOVERY_LIBRARIES))?;
     }
     // The phone's own recovery starts logd itself as it boots, as the logd
     // account, and the daemon sets its own scheduling cgroup as it starts,
@@ -989,7 +998,19 @@ fn identify(path: &Path) -> Result<()> {
                 println!("all user data is erased once it is in, after the user agrees");
             }
         }
-        Package::Image(kind) => println!("{kind:?}, for {}", kind.partitions().join(" or ")),
+        Package::Image(image) => {
+            let how = if image.layout.sparse { ", in the sparse format" } else { "" };
+            println!("an image of {:?}, {} bytes in its partition{how}", image.kind, image.layout.size);
+            #[cfg(target_os = "android")]
+            {
+                use skyward_install::image::{named, targets};
+                let name = path.file_name().and_then(|name| name.to_str()).map(named);
+                let logical = skyward_vab::slot_names(booted_slot()?)?;
+                for target in targets(image.kind, name, Path::new(skyward_block::BY_NAME), &logical)? {
+                    println!("for {}, {:?}", target.name, target.place);
+                }
+            }
+        }
         Package::Script => println!("a zip that installs itself with a script"),
         Package::System(c) => {
             println!("the system {} {} ({}), to install beside the installed one", c.manifest.name, c.manifest.version, c.manifest.id);
