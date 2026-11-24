@@ -1,0 +1,54 @@
+# Initial port based on the two stock images supplied for zircon.
+# See docs/ZIRCON.zh-CN.md for evidence and the remaining hardware checks.
+[device]
+codename = "zircon"
+brand = "Redmi"
+model = "Redmi Note 13 Pro+"
+ab = true
+soc = { hans = "天玑 7200-Ultra", hant = "天璣 7200-Ultra", en = "Dimensity 7200-Ultra" }
+os_version_prop = "ro.mi.os.version.incremental"
+recovery_partition = "vendor_boot"
+# Unlike pearl, this stock ramdisk carries servicemanager and starts it
+# on init. It must read the descriptions published by Skyward again.
+restart_service_directory = true
+
+[skyward]
+releases = "Eason206/zircon-skyward"
+
+[display]
+# The N16U panel is 1220 x 2712. Its stock driver and DTB are preserved.
+width = 1220
+height = 2712
+diagonal = 6.67
+# A provisional UI density: the supplied recovery's generic HAL property
+# block uses 480. The installed system's overlay was not supplied.
+density = 480
+# Keep the panel's startup mode until refresh switching is tested.
+fastest_refresh = false
+
+[modules]
+sources = ["vendor_boot", "vendor_dlkm", "vendor", "system_dlkm"]
+# modules.load.recovery already loads the N16U panel, mediatek-drm,
+# goodix_core, xiaomi_touch and regulator-vibrator. No pearl-specific
+# haptic or WLAN module is requested by this initial port.
+load = []
+
+[partitions]
+# fstab.mt6886 mounts this at /mnt/vendor/persist.
+mounted = ["persist"]
+
+[stock]
+version = "OS3.0.305.0.WNOCNXM"
+recovery = "d9427bce88b3ce81c1d496f01f38a356d08575c4ea86a6f88941e68b8ee72634"
+# No full OTA URL was supplied. Build with a local vendor_boot.img;
+# skyward-pack checks it against the hash above before changing it.
+
+[update]
+server = "https://update.miui.com/updates/miotaV3.php"
+
+[backup]
+# The calibration/identity partitions named by the supplied MT6886 fstab.
+efs = ["nvram", "nvdata", "nvcfg", "protect1", "protect2", "persist"]
+
+[wipe]
+logs = ["/data/vendor/mtklog", "/data/vendor/connsyslog"]

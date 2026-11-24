@@ -1,4 +1,8 @@
 target/
+.work/
+.tools/
+out/
+__pycache__/
 .idea/
 .vscode/
 .DS_Store

@@ -1,183 +1,105 @@
-![Skyward Recovery](assets/hero.jpg)
+# Skyward for zircon
 
-# Skyward
+[English](README.md) | **简体中文**
 
-[English](README.md) | 简体中文
+为 **Redmi Note 13 Pro+（`zircon`）** 适配的 Rust 恢复项目 Skyward 实验版。
+首版基于提供的 **OS3.0.305.0.WNOCNXM** 原厂 boot 与 vendor_boot 镜像，
+保留原厂内核、设备树及恢复模式驱动。
 
-Skyward 是使用 Rust 编写的 recovery，从零开始编写。
+**当前版本：`v0.3.3-alpha.1`。已完成编译和离线校验，尚未进行实机启动验证。**
 
-<p align="center">
-  <img src="assets/home.png" width="30%" alt="首页">
-  <img src="assets/settings-dark.png" width="30%" alt="深色模式下的设置">
-  <img src="assets/time-zone.png" width="30%" alt="时区">
-</p>
+[下载实验版](https://github.com/Eason206/zircon-skyward/releases/tag/v0.3.3-alpha.1)
+· [编译与验证记录](docs/ZIRCON.zh-CN.md)
+· [设备配置](devices/zircon.toml)
 
-## 功能
+## 设备与范围
 
-### 双系统
-
-![一台手机可以安装两个系统](slides/zh-CN/out/01-dual-boot.png)
-
-![切换系统只改写两个分区](slides/zh-CN/out/02-dual-boot-partitions.png)
-
-第二系统的安装包格式和启动过程见下文的[双系统的工作方式](#双系统的工作方式)。
-
-### 解密
-
-![用锁屏图案或密码解密 data 分区](slides/zh-CN/out/03-decrypt.png)
-
-### 安装
-
-![从三个来源安装四种安装包](slides/zh-CN/out/04-install.png)
-
-刷机包的安装脚本可以使用 `7za` 和 `zstd`，支持刷入 super 镜像使用 zstd 压缩的第三方 ROM；`unzip -p` 边解压边输出镜像。安装脚本还可以使用 `avbctl` 关闭验证启动的校验，使用 `resetprop` 读取和设置属性。
-
-### 在线更新
-
-![系统和 Skyward 都能在线更新](slides/zh-CN/out/05-updates.png)
-
-### 备份和恢复
-
-![系统、应用和 IMEI 都可以备份](slides/zh-CN/out/06-backup.png)
-
-### 文件管理
-
-![在 Skyward 中管理手机里的文件](slides/zh-CN/out/07-files.png)
-
-### 终端
-
-![手机上就能运行 root shell](slides/zh-CN/out/08-terminal.png)
-
-### 连接电脑
-
-![用数据线连接电脑，传文件和刷写分区](slides/zh-CN/out/09-computer.png)
-
-### 清除数据
-
-![每一项都写明会清除哪些内容](slides/zh-CN/out/10-wipe.png)
-
-### 替换原厂 recovery
-
-![系统发来的请求，Skyward 照常处理](slides/zh-CN/out/11-requests.png)
-
-### 搜索
-
-![输入拼音首字母，就能找到功能](slides/zh-CN/out/12-search.png)
-
-### 高级
-
-![系统出了问题，可以先在这里修复](slides/zh-CN/out/13-tools.png)
-
-### 关于本机
-
-![电池剩余容量和充电循环都能查看](slides/zh-CN/out/14-specs.png)
-
-### 其他功能
-
-- 重启到系统、recovery、fastboot 和 bootloader，切换启动槽位
-- 浅色和深色模式，简体中文、繁体中文和英文
-
-### 没有系统时
-
-![super 中没有系统，也能装回一个系统](slides/zh-CN/out/15-no-system.png)
-
-## 支持的机型
-
-| 机型 | 代号 | 构建所用的系统版本 |
-| --- | --- | --- |
-| Redmi Note 12T Pro | `pearl` | OS3.0.3.0.VLHCNXM（Android 15） |
-
-这个镜像按照手机的原厂固件构建，还没有在真机上试过。屏幕、触摸、WLAN 和振动已经配置好。解密 data 分区所需的程序由 Skyward 在手机上从已安装系统的 init 脚本和服务描述中读出，读取结果都用原厂固件核对过，这些程序在这台手机上的运行情况还没有验证。
-
-## 安装 Skyward
-
-Skyward 需要已解锁的 bootloader。从 [Releases](https://github.com/kirklin/skyward/releases) 下载对应机型的 zip，每个文件都标有机型和代号，例如 Redmi Note 12T Pro (pearl)。使用 `SHA256SUMS` 核对并解压之后，在手机处于 fastboot 模式的时候，把其中的镜像刷入恢复系统所在的分区，pearl 上是 `vendor_boot`：
-
-```sh
-unzip skyward-v0.3.3-pearl-OS3.0.3.0.VLHCNXM.zip
-fastboot flash vendor_boot skyward-v0.3.3-pearl-OS3.0.3.0.VLHCNXM.img
-fastboot reboot recovery
-```
-
-之后连接 WLAN，就可以在“设置”的“Skyward 更新”页面更新到最新版本，也可以在 Skyward 自己的“安装”页面安装解压出来的新版镜像。打开 **自动重新刷入 Skyward** 之后，系统更新或者刷机包覆盖 recovery 分区的时候，Skyward 会重新刷回这些分区。
-
-Skyward 中的 adb 是 root shell，手机上无需授权：手机处于 recovery 的时候，任何人拿到手机和数据线都能访问其中的存储。
-
-## 双系统的工作方式
-
-Skyward 可以在手机自身分区中的系统旁边安装第二系统，主系统是 HyperOS 或者第三方 ROM 都可以，并在首页的“双系统”中切换。第二系统的根文件系统是 data 分区中的一个文件，文件系统不能移动或删除它，Skyward 直接通过分区读写其中的内容；两个系统的启动镜像保存在另一个这样的文件中。切换系统只改写下次启动槽位的 boot 和 init_boot 分区，每一步都先记录在 /metadata 中，切换过程中断电的话，Skyward 下次启动时会完成这次切换。vendor_boot、dtbo、recovery、vbmeta、固件和 super 都保持不变，第二系统使用主系统的 vendor_boot 和 dtbo 启动。
-
-其他操作写入启动分区之前，Skyward 会先把主系统的启动镜像写回：安装、切换启动槽位、fastboot、恢复出厂设置，以及备份或恢复启动分区。系统更新尚未合并的时候，暂不切换到第二系统；备份 data 分区的时候不包含第二系统。
-
-第二系统的安装包是 zip 文件，和其他安装包一样在“安装”页面安装：
-
-| 文件 | 内容 |
+| 项目 | 初版适配 |
 | --- | --- |
-| `system.toml` | `id`、`name`、`version` 和 `filesystem`；`init` 是根文件系统中第一个运行的程序，默认为 `/sbin/init`；`minimum` 是根文件系统至少需要的空间，单位为字节 |
-| `boot.img` | bootloader 启动的内核 |
-| `rootfs.img` | 根文件系统的镜像，格式为 `filesystem` 指定的文件系统 |
-| `init_boot.img` | 只有自带第一阶段 ramdisk 的系统需要 |
+| 设备 | Redmi Note 13 Pro+ / zircon / 原厂型号 23090RA98C |
+| 平台 | MediaTek MT6886 / 天玑 7200-Ultra |
+| 原厂 vendor 版本 | OS3.0.305.0.WNOCNXM |
+| 目标分区 | vendor_boot，64 MiB，Android v4 启动头 |
+| 显示 | 1220 × 2712，初始 UI 密度 480 DPI |
+| 原厂恢复模式模块 | N16U 面板、mediatek-drm、goodix_core、xiaomi_touch |
+| 源码许可 | GPL-3.0-or-later |
 
-没有自带 init_boot 镜像的系统，从 Skyward 生成的 init_boot 镜像启动。其中的程序按照主系统第一阶段的方式加载第一阶段的内核模块，包括模块之间的软依赖和内核命令行中给模块的参数，然后在 data 分区中找到根文件系统，挂载之后运行其中的 `init`。启动过程中出现任何错误，这个程序都会进入 Skyward，和主系统启动失败时进入 recovery 一样：它在 misc 中留下原因，把当前槽位 recovery 分区中的 ramdisk 按照 bootloader 启动 recovery 时内核解包的方式解包到自己的 ramdisk 上，然后交给 Skyward 的第一个程序运行，所以无论 bootloader 怎样处理重启，都能进入 Skyward。Skyward 显示原因；用户在“双系统”中切换之前，下次启动的仍是第二系统。启动长时间没有进展时，这个程序改为重启到 recovery；交给第二系统之前手机重启的话，下次启动时它会在 misc 中看到同样的请求，先进入 Skyward。两种方式都无法进入 Skyward 时，手机停留在出错的地方，不会反复启动同一个系统。自带第一阶段 ramdisk 的系统可以运行 Skyward 放在 `/skyward/map` 的程序，它把根文件系统映射为块设备，并输出设备节点的路径。每次切换到第二系统，Skyward 都用自己带的程序写入第二系统的 init_boot 镜像，所以更新 Skyward 以后，第二系统也用新的程序启动。
+原厂指纹中的 `:13/` 描述 vendor/recovery 属性，不能据此确定完整安装系统的
+Android 版本。输入镜像的标识与哈希记录在 [devices/zircon-stock.json](devices/zircon-stock.json)。
 
-正在运行的系统也可以请求切换：在 misc 中写入 `boot-recovery` 和 `--switch_system=installed`，或者 `--switch_system=` 加上第二系统的 `id`，然后重启到 recovery。bootloader 仍然启动这个槽位的话（小米 13 Ultra 连着 USB 线时可能这样），Skyward 的程序会在下次启动时在 misc 中看到这个请求，先进入 Skyward。
+## 验证状态
 
-## 构建
+| 项目 | 状态 |
+| --- | --- |
+| ARM64 recovery、静态 system-init、本机打包器 | 编译成功 |
+| 镜像、压缩包与 AVB SHA-256 校验 | 离线通过 |
+| 原厂 DTB、init、adbd、策略、库与 206 个内核模块 | 保留并校验一致 |
+| 显示与触摸 | 原厂驱动已准备，实机表现待验证 |
+| ADB 与 MTP | 已包含，实机表现待验证 |
+| Wi-Fi 与震动控制配置 | 本 alpha 暂未启用 |
+| FBE 解密、刷包、备份恢复、双系统 | 保留核心代码，设备验证待完成 |
 
-Skyward 使用 `rust-toolchain.toml` 指定版本的 Rust 和它的 `aarch64-linux-android` 目标、Android NDK r29 和 [cargo-ndk](https://github.com/bbqsrc/cargo-ndk) 构建。recovery 服务针对手机构建，打包工具针对电脑构建：
+此 alpha 用于已解锁 Bootloader、固件匹配的设备进行适配测试。目标分区是
+**vendor_boot**；该镜像不能作为内核 boot.img 直接传给 `fastboot boot`。
+恢复模式下的 ADB 是无需手机端授权的 root shell。
 
-```sh
-cargo ndk -t arm64-v8a --platform 30 build --release -p skyward
-cargo build --release -p skyward-pack
-```
+## 下载与校验
 
-第二系统启动时运行的第一个程序在任何动态库可用之前运行，因此构建为静态程序：
-
-```sh
-RUSTFLAGS="-C target-feature=+crt-static" cargo ndk -t arm64-v8a --platform 30 build --release -p skyward-system-init --target-dir target/system-init
-```
-
-打包工具从小米服务器上这个版本的完整更新包中取出原厂 recovery 分区，只读取这个分区所在的部分，并且按照设备配置文件核对 SHA-256：
-
-```sh
-target/release/skyward-pack stock --config devices/pearl.toml --out target/stock/pearl/vendor_boot.img
-```
-
-然后在它的基础上构建镜像：
-
-```sh
-target/release/skyward-pack recovery \
-  --stock target/stock/pearl/vendor_boot.img \
-  --binary target/aarch64-linux-android/release/skyward \
-  --system-init target/system-init/aarch64-linux-android/release/system-init \
-  --config devices/pearl.toml \
-  --font resources/fonts/MiSansVF.ttf \
-  --mono resources/fonts/KirkMono-Regular.ttf \
-  --mono-license resources/fonts/KirkMono-OFL.txt \
-  --add /skyward/avatar.png=resources/avatar.png \
-  --out target/skyward-pearl.img
-```
-
-测试和代码检查在电脑上运行；只在手机上运行的代码按照手机目标检查：
+从 [Releases](https://github.com/Eason206/zircon-skyward/releases) 下载 ZIP、
+`SHA256SUMS`、`verification.json` 和 `BUILDINFO.json`。解压获得 64 MiB 的
+`.img`，再核对 ZIP 与镜像哈希：
 
 ```sh
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
-cargo ndk -t arm64-v8a --platform 30 clippy --workspace --all-targets -- -D warnings
+unzip skyward-v0.3.3-alpha.1-zircon-OS3.0.305.0.WNOCNXM-experimental.zip
+shasum -a 256 -c SHA256SUMS
 ```
 
-名称以 `on_the_phone` 开头的测试会创建文件系统、挂载分区、设置加密密钥，这些操作只有手机能够完成。把一台已经进入 Skyward、数据分区已经打开的手机通过 adb 连接到电脑，`cargo ndk` 会把每个测试程序推送到手机上运行，测试逐个执行：
+此版本标为 **Pre-release（预发布）**，GitHub 的稳定版 `releases/latest`
+接口不会返回它。这个适配版的 Skyward 更新源已指向本仓库。
+
+## 编译
+
+需要 Rust **1.100.0**、`aarch64-linux-android` target、Android NDK
+**r29 / 29.0.14206865**、cargo-ndk **4.1.2**、Python **3.11+**、LZ4 和 ripgrep。
+初版在 macOS ARM64 上构建；CI 使用 NDK 支持的 Linux x86_64 构建主机。
+先安装 [rustup](https://rustup.rs/) 与 [NDK r29](https://developer.android.com/ndk/downloads)。
 
 ```sh
-cargo ndk -t arm64-v8a --platform 30 test -p skyward -p skyward-block -p skyward-files -p skyward-mtp on_the_phone -- --test-threads=1
+git clone https://github.com/Eason206/zircon-skyward.git
+cd zircon-skyward
+export ANDROID_NDK_HOME="/path/to/android-ndk-r29"
+./scripts/setup-env.sh
+./scripts/build-zircon.sh \
+  --stock /path/to/vendor_boot.img \
+  --boot /path/to/boot.img
 ```
 
-`skyward-preview` 无需手机，在电脑上把页面绘制成 PNG 文件：每个页面完整绘制成长截图的样子，覆盖它可能处于的各种状态，另外还有触摸和动画过程中某些时刻的屏幕。`--lang` 按照地区代码选择语言，例如 `en` 或者 `zh-TW`：
+请提供设备清单对应的原厂输入，它们不存储在 Git 中。脚本会先检查 SHA-256，
+保留原厂内核，编译程序、打包并验证 vendor_boot，在 `out/zircon/` 生成镜像、ZIP、
+校验和及报告。也可将两份输入放入 `target/stock/zircon/` 后使用默认路径。
+
+手动执行 Cargo 命令前，在仓库目录运行 `source scripts/env.sh`。
+[编译说明](docs/ZIRCON.zh-CN.md) 提供本地原厂镜像接口、保留组件与待适配项目的详细记录。
+
+## 测试与 CI
+
+发布候选版通过 **878 项工作区测试**，其中包含 **56 项适配相关测试**。
+相关测试与 Clippy 检查命令：
 
 ```sh
-cargo run --release -p skyward-preview -- target/preview --lang en
+cargo test --locked -p skyward-config -p skyward-pack -p skyward-bootimg -p skyward-modules
+cargo clippy --locked -p skyward-config -p skyward-pack --all-targets -- -D warnings
 ```
 
-## 许可证
+[GitHub Actions](.github/workflows/build.yml) 运行工作区检查并编译恢复工具。
+完整 zircon 镜像需要本地原厂输入；Release 附件来自使用这些输入独立校验的构建。
 
-[GPL-3.0-or-later](LICENSE)
+## 上游与许可
+
+本次参考 [mytiantian001/pearl-skyward](https://github.com/mytiantian001/pearl-skyward)
+的 `d1d349481248e32a43bed7a1bfcd1124840beba8`。
+原始 Skyward 项目位于 [kirklin/skyward](https://github.com/kirklin/skyward)，
+上游源码历史与版权声明予以保留。zircon 适配由 [Eason206](https://github.com/Eason206) 维护。
+
+Skyward 源码采用 **GPL-3.0-or-later**。完整条款见 [LICENSE](LICENSE)，
+上游署名、字体及原厂组件的独立许可说明见 [NOTICE.md](NOTICE.md)。

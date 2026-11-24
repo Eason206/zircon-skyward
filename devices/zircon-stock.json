@@ -1,0 +1,41 @@
+{
+  "reference": {
+    "repository": "https://github.com/mytiantian001/pearl-skyward",
+    "commit": "d1d349481248e32a43bed7a1bfcd1124840beba8"
+  },
+  "version": "OS3.0.305.0.WNOCNXM",
+  "device": "zircon",
+  "model": "23090RA98C",
+  "platform": "mt6886",
+  "vendor_fingerprint": "Redmi/zircon/zircon:13/TP1A.220624.014/OS3.0.305.0.WNOCNXM:user/release-keys",
+  "vendor_security_patch": "2026-08-01",
+  "boot": {
+    "size": 67108864,
+    "sha256": "d5419daea476a36d5bb6f9a6bc9d395a4252148f4e8479c99f78399d0c696a0f",
+    "header_version": 4,
+    "kernel_size": 25048041,
+    "ramdisk_size": 0,
+    "kernel_release": "5.15.194-android13-8-00038-g853eb7b6b965-ab15936612"
+  },
+  "vendor_boot": {
+    "size": 67108864,
+    "sha256": "d9427bce88b3ce81c1d496f01f38a356d08575c4ea86a6f88941e68b8ee72634",
+    "header_version": 4,
+    "page_size": 4096,
+    "vendor_ramdisk_size": 40016604,
+    "dtb_size": 275488,
+    "dtb_wrapper_size": 64,
+    "ramdisk_fragments": 1,
+    "ramdisk_type": 1,
+    "bootconfig_size": 0,
+    "usb_controller": "11201000.usb0"
+  },
+  "recovery_modules": [
+    "panel-n16u-42-02-0a-dsc-vdo.ko",
+    "mediatek-drm.ko",
+    "goodix_core.ko",
+    "xiaomi_touch.ko",
+    "regulator-vibrator.ko"
+  ],
+  "status": "Built and checked offline; not boot-tested on a phone."
+}

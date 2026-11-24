@@ -99,14 +99,16 @@ pub struct DeviceConfig {
 }
 
 /// The stock build a recovery is made on: the phone maker's full update
-/// package of it, whose recovery partition the recovery is built on top
-/// of, and that partition as it should come out of the package.
+/// package of it when known, and the SHA-256 of the recovery partition
+/// supplied locally or taken out of that package.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Stock {
     /// The build's version, such as OS4.0.4.0.XPACNXM.
     pub version: String,
-    /// Where the package is downloaded from, over HTTPS.
-    pub package: String,
+    /// Where the package is downloaded from, over HTTPS. A port based on
+    /// local stock images may omit this until its full package is known.
+    #[serde(default)]
+    pub package: Option<String>,
     /// The SHA-256 of the image the recovery is made on, in lowercase hex:
     /// a recovery partition's own, or the vendor boot image's where the
     /// recovery lives there.
@@ -718,13 +720,15 @@ impl DeviceConfig {
         }
         check_given("[[owners]]", &cfg.owners)?;
         if let Some(stock) = &cfg.stock {
-            let name = stock.package.rsplit('/').next().unwrap_or_default();
-            ensure!(
-                stock.package.starts_with("https://") && name.ends_with(".zip") && name.contains(&stock.version) && !stock.version.is_empty(),
-                "[stock] package: {} is not an HTTPS address of the full package of {}",
-                stock.package,
-                stock.version
-            );
+            ensure!(!stock.version.trim().is_empty(), "[stock] version: the build's version is empty");
+            if let Some(package) = &stock.package {
+                let name = package.rsplit('/').next().unwrap_or_default();
+                ensure!(
+                    package.starts_with("https://") && name.ends_with(".zip") && name.contains(&stock.version),
+                    "[stock] package: {package} is not an HTTPS address of the full package of {}",
+                    stock.version
+                );
+            }
             ensure!(
                 stock.recovery.len() == 64 && stock.recovery.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
                 "[stock] recovery: {} is not a SHA-256 in lowercase hex",
@@ -951,7 +955,8 @@ mod tests {
     fn the_phone_names_the_stock_build_its_recovery_is_made_on() {
         let stock = DeviceConfig::parse(include_str!("../../../devices/pearl.toml")).unwrap().stock.expect("a stock build to build on");
         assert_eq!(stock.version, "OS3.0.3.0.VLHCNXM");
-        assert!(stock.package.ends_with(".zip") && stock.package.contains(&format!("/{}/", stock.version)), "{}", stock.package);
+        let package = stock.package.expect("pearl names its full update package");
+        assert!(package.ends_with(".zip") && package.contains(&format!("/{}/", stock.version)), "{package}");
     }
 
     #[test]
@@ -966,6 +971,16 @@ mod tests {
         let other = ok.replace("version = \"OS1.0.1.0", "version = \"OS1.0.2.0");
         assert!(DeviceConfig::parse(&format!("{other}recovery = \"{hash}\"\n")).is_err(), "the package of another build");
         assert_eq!(DeviceConfig::parse("[device]\ncodename = \"x\"\n").unwrap().stock, None);
+    }
+
+    #[test]
+    fn a_local_stock_build_keeps_its_version_and_hash_without_a_package_url() {
+        let local = "[device]\ncodename = \"x\"\n[stock]\nversion = \"OS1.0.1.0.XXXCNXM\"\nrecovery = \"faa425b10231a0cfe2d74ff34f344f032ee2d891ea5e9420bf4e67cd86d622a7\"\n";
+        let stock = DeviceConfig::parse(local).unwrap().stock.unwrap();
+        assert!(stock.package.is_none());
+        assert!(DeviceConfig::parse(&local.replace("OS1.0.1.0.XXXCNXM", "")).is_err());
+        assert!(DeviceConfig::parse(&local.replace("faa425", "FAA425")).is_err());
+        assert!(DeviceConfig::parse(&format!("{local}package = \"\"\n")).is_err());
     }
 
     #[test]

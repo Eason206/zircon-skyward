@@ -89,6 +89,10 @@ enum Cmd {
         /// The device configuration, devices/<codename>.toml.
         #[arg(long)]
         config: PathBuf,
+        /// A local stock image to check against the configuration instead
+        /// of downloading its partition from a full update package.
+        #[arg(long)]
+        image: Option<PathBuf>,
         /// Where to write the stock recovery image.
         #[arg(long)]
         out: Option<PathBuf>,
@@ -140,6 +144,9 @@ fn main() -> Result<()> {
         Cmd::Recovery { stock, binary, system_init, config, font, mono, mono_license, add, out } => {
             let size = partition_size(&stock)?;
             let cfg = skyward_config::DeviceConfig::load(&config)?;
+            if let Some(expected) = &cfg.stock {
+                check_stock_image(expected, &stock)?;
+            }
             let mut img = Image::read(&stock)?;
             let mut rd = Ramdisk::decode(img.ramdisk())?;
             let files = Packed { binary: &binary, system_init: &system_init, config: &config, font: &font, mono: &mono, mono_license: &mono_license };
@@ -160,10 +167,24 @@ fn main() -> Result<()> {
             );
             Ok(())
         }
-        Cmd::Stock { config, out } => {
+        Cmd::Stock { config, image, out } => {
             let cfg = skyward_config::DeviceConfig::load(&config)?;
             let stock = cfg.stock.as_ref().with_context(|| format!("{} names no stock build", config.display()))?;
-            println!("version={}\npackage={}\nrecovery={}", stock.version, stock.package, stock.recovery);
+            println!("version={}\npackage={}\nrecovery={}", stock.version, stock.package.as_deref().unwrap_or_default(), stock.recovery);
+            if let Some(image) = image {
+                check_stock_image(stock, &image)?;
+                if let Some(out) = out {
+                    let same = out.exists() && std::fs::canonicalize(&image)? == std::fs::canonicalize(&out)?;
+                    if !same {
+                        if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
+                            std::fs::create_dir_all(parent)?;
+                        }
+                        std::fs::copy(&image, &out).with_context(|| format!("copy {} to {}", image.display(), out.display()))?;
+                    }
+                }
+                println!("checked {} against the stock SHA-256", image.display());
+                return Ok(());
+            }
             match out {
                 Some(out) => take_stock_recovery(stock, &cfg.device.recovery_partition, &out),
                 None => Ok(()),
@@ -172,9 +193,18 @@ fn main() -> Result<()> {
         Cmd::Described { config, partitions, out } => {
             let stock = skyward_config::DeviceConfig::load(&config)?.stock.with_context(|| format!("{} names no stock build", config.display()))?;
             let partitions = if partitions.is_empty() { skyward_programs::phone::PARTITIONS.map(str::to_string).to_vec() } else { partitions };
-            described::take(&stock.package, &partitions, &out)
+            let package = stock.package.as_deref().context("this stock build has no full update package URL; supply its vendor/odm partitions locally to inspect their services")?;
+            described::take(package, &partitions, &out)
         }
     }
+}
+
+/// Refuse a stock image from another build before changing or copying it.
+fn check_stock_image(stock: &skyward_config::Stock, image: &Path) -> Result<()> {
+    let bytes = std::fs::read(image).with_context(|| format!("read {}", image.display()))?;
+    let sum = hex::encode(Sha256::digest(&bytes));
+    ensure!(sum == stock.recovery, "{} has SHA-256 {sum}; {} requires {}", image.display(), stock.version, stock.recovery);
+    Ok(())
 }
 
 /// Take the partition the recovery is made on out of the stock build's full
@@ -183,11 +213,12 @@ fn main() -> Result<()> {
 /// names. A phone whose recovery lives in its vendor boot image names that
 /// partition rather than a recovery one.
 fn take_stock_recovery(stock: &skyward_config::Stock, partition: &str, out: &Path) -> Result<()> {
+    let package = stock.package.as_deref().context("this stock build uses a local image; pass --image /path/to/vendor_boot.img or add its verified full update package URL to [stock]")?;
     let parent = out.parent().filter(|p| !p.as_os_str().is_empty()).unwrap_or(Path::new("."));
     std::fs::create_dir_all(parent).with_context(|| format!("make {}", parent.display()))?;
     // Taken out beside where it goes, so it is moved there whole.
     let work = tempfile::Builder::new().prefix(".stock").tempdir_in(parent).with_context(|| format!("make a folder in {}", parent.display()))?;
-    let payload = unpayload::Payload::open_url(&stock.package).with_context(|| format!("open {}", stock.package))?;
+    let payload = unpayload::Payload::open_url(package).with_context(|| format!("open {package}"))?;
     let options = unpayload::ExtractOptions { output_dir: work.path().to_path_buf(), partitions: vec![partition.into()], ..Default::default() };
     let report = |event: unpayload::Event<'_>| match event {
         unpayload::Event::Started { partitions } => {
@@ -198,10 +229,10 @@ fn take_stock_recovery(stock: &skyward_config::Stock, partition: &str, out: &Pat
         unpayload::Event::Extracted(image) => println!("took {} out: {} bytes", image.partition, image.size),
         unpayload::Event::Progress { .. } => {}
     };
-    let taken = payload.extract(&options, &report).with_context(|| format!("take {partition} out of {}", stock.package))?;
-    let image = taken.iter().find(|i| i.partition == partition).with_context(|| format!("{} holds no {partition} partition", stock.package))?;
+    let taken = payload.extract(&options, &report).with_context(|| format!("take {partition} out of {package}"))?;
+    let image = taken.iter().find(|i| i.partition == partition).with_context(|| format!("{package} holds no {partition} partition"))?;
     let sum = hex::encode(image.sha256.as_deref().context("the package's own sum of the image was not checked")?);
-    ensure!(sum == stock.recovery, "the {partition} partition in {} has the SHA-256 {sum}, where the configuration names {}", stock.package, stock.recovery);
+    ensure!(sum == stock.recovery, "the {partition} partition in {package} has the SHA-256 {sum}, where the configuration names {}", stock.recovery);
     std::fs::rename(&image.path, out).with_context(|| format!("move {} to {}", image.path.display(), out.display()))?;
     println!("wrote {} ({} bytes), its SHA-256 the one the configuration names", out.display(), image.size);
     Ok(())
@@ -410,6 +441,24 @@ fn list(image: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_local_stock_image_must_match_the_configured_build() {
+        let dir = tempfile::tempdir().unwrap();
+        let image = dir.path().join("vendor_boot.img");
+        let content = b"the supplied stock partition";
+        std::fs::write(&image, content).unwrap();
+        let mut stock = skyward_config::Stock {
+            version: "OS3.0.305.0.WNOCNXM".into(),
+            package: None,
+            recovery: hex::encode(Sha256::digest(content)),
+        };
+        check_stock_image(&stock, &image).unwrap();
+        stock.recovery = "00".repeat(32);
+        assert!(check_stock_image(&stock, &image).is_err(), "another build's image is refused");
+        assert!(check_stock_image(&stock, &dir.path().join("missing.img")).is_err());
+        assert_eq!(std::fs::read(&image).unwrap(), content, "checking leaves the input intact");
+    }
 
     #[test]
     fn the_lines_that_set_a_name_are_the_only_ones_left_out() {
