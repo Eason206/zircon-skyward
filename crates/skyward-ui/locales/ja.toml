@@ -392,6 +392,8 @@ changed_sent = "送信中にファイルが変更されました。もう一度�
 changed_read = "読み取り中にファイルが変更されました。もう一度選択してください。"
 
 [wlan]
+simulated_title = "Wi-Fi（シミュレーション）"
+simulated_note = "QEMU のテストネットワークで検索と接続をシミュレートします。実際のネットワークにはアクセスしません。QEMU-Skyward のテストパスワードは qemu-demo です。"
 turn_on_note = "オンにすると、システムアップデートと Skyward の新しいバージョンを Wi-Fi でダウンロードできます。"
 cant_turn_on = "Wi-Fi をオンにできませんでした：{why}"
 turning_on_wlan = "Wi-Fi をオンにしています"

@@ -9,6 +9,7 @@ pub mod reach;
 pub mod release;
 pub mod supplicant;
 pub mod wlan;
+pub mod wlan_simulation;
 
 /// Work stopped because it was asked to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

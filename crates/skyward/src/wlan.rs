@@ -117,6 +117,35 @@ pub struct Worker {
 }
 
 impl Worker {
+    /// Start the QEMU preview backend. This worker only changes UI state.
+    pub fn simulated() -> Result<Worker> {
+        let (inbox, asked) = worker::telling().context("make the simulated WLAN inbox")?;
+        let worker = worker::Worker::start("wlan-preview", move |tell| {
+            let mut simulation = skyward_net::wlan_simulation::Simulation::default();
+            loop {
+                let mut fd = libc::pollfd { fd: asked.fd(), events: libc::POLLIN, revents: 0 };
+                if unsafe { libc::poll(&mut fd, 1, -1) } < 0 {
+                    continue;
+                }
+                for message in asked.take() {
+                    match message {
+                        Inbox::Command(command) => match command {
+                            Command::On => simulation.power(true),
+                            Command::Off => simulation.power(false),
+                            Command::Scan => simulation.scan(),
+                            Command::Join { ssid, security, password, .. } => simulation.join(&ssid, security, &password),
+                            Command::Leave => simulation.leave(),
+                        },
+                        Inbox::End => return,
+                        Inbox::Address(..) | Inbox::Reach(..) => continue,
+                    }
+                    tell.tell(Report::Wlan(simulation.state().clone()));
+                }
+            }
+        })?;
+        Ok(Worker { inbox, worker })
+    }
+
     /// Start the thread, with the WLAN off. `modules` are the folders the
     /// driver's modules are found in, `libraries` the bundle of the vendor
     /// interface's libraries, and `servers` where the DNS servers the

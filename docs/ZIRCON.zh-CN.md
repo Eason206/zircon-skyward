@@ -77,7 +77,7 @@ NDK 自带的 clang 用于 Android 交叉编译；打包器由本机 Rust 编译
 - 安装命令链接到 recovery，恢复模式属性已设置，AVB footer 与 vendor_boot 的 SHA-256 描述符一致。
 - ZIP 可完整解压，其中的镜像哈希与裸镜像一致。
 
-镜像离线验证检查 64 MiB 分区布局、206 个内核模块及 1117 个保留的原厂条目。0.5.1 同步版本通过 941 项主机工作区测试，包含 zircon 原厂 fstab 加密识别回归测试和上游功能测试：
+镜像离线验证检查 64 MiB 分区布局、206 个内核模块及 1117 个保留的原厂条目。0.5.1 同步版本通过 946 项主机工作区测试，包含 zircon 原厂 fstab 加密识别回归测试和上游功能测试：
 
 ```sh
 cargo test --locked --workspace
@@ -102,3 +102,6 @@ target/release/skyward-pack stock \
 `recovery --stock` 也会检查设备配置固定的哈希，拒绝其他版本或机型的输入。pearl 的完整 OTA 下载方式仍可使用。
 
 GitHub Actions 检查工作区源码并编译恢复工具。完整 zircon 镜像使用本地、哈希固定的原厂输入独立打包与校验后发布。Skyward 更新源指向本仓库；GitHub 的 `releases/latest` 排除实验预发布版本，待稳定版发布后才会提供稳定更新。
+
+
+可见 ARM64 QEMU 预览、模拟 Wi-Fi 的启动方法和验证边界见 [QEMU 说明](QEMU.md)。

@@ -7,11 +7,12 @@
 镜像基于提供的 **OS3.0.305.0.WNOCNXM** 原厂 boot 与 vendor_boot，
 保留原厂内核、设备树及恢复模式驱动。
 
-**当前版本：`v0.5.1-alpha.1`。已完成编译和离线校验，尚未进行实机启动验证。**
+**当前版本：`v0.5.1-alpha.2`。已完成编译和离线校验，尚未进行实机启动验证。**
 
-[下载实验版](https://github.com/Eason206/zircon-skyward/releases/tag/v0.5.1-alpha.1)
+[下载实验版](https://github.com/Eason206/zircon-skyward/releases/tag/v0.5.1-alpha.2)
 · [编译与验证记录](docs/ZIRCON.zh-CN.md)
 · [设备配置](devices/zircon.toml)
+· [QEMU 可视预览与模拟 Wi-Fi](docs/QEMU.md)
 
 ## 上游完整功能
 
@@ -53,7 +54,8 @@ Android 版本。输入镜像的标识与哈希记录在 [devices/zircon-stock.j
 | 原厂 DTB、init、adbd、策略、库与 206 个内核模块 | 保留并校验一致 |
 | 显示与触摸 | 原厂驱动已准备，实机表现待验证 |
 | ADB 与 MTP | 已包含，实机表现待验证 |
-| Wi-Fi 与震动控制配置 | 本 alpha 暂未启用 |
+| Wi-Fi 与震动控制配置 | 真机配置暂未启用；QEMU 支持明确标记的模拟 Wi-Fi |
+| QEMU 可视预览 | 图片、扫描、密码连接及断开流程已验证，见 [说明](docs/QEMU.md) |
 | FBE 解密、刷包、备份恢复、双系统 | 已包含完整上游实现，设备验证待完成 |
 
 此 alpha 用于已解锁 Bootloader、固件匹配的设备进行适配测试。目标分区是
@@ -67,7 +69,7 @@ Android 版本。输入镜像的标识与哈希记录在 [devices/zircon-stock.j
 `.img`，再核对 ZIP 与镜像哈希：
 
 ```sh
-unzip skyward-v0.5.1-alpha.1-zircon-OS3.0.305.0.WNOCNXM-experimental.zip
+unzip skyward-v0.5.1-alpha.2-zircon-OS3.0.305.0.WNOCNXM-experimental.zip
 shasum -a 256 -c SHA256SUMS
 ```
 

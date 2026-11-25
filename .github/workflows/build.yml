@@ -49,7 +49,8 @@ jobs:
           python3 - <<'PY'
           import ast, json, subprocess, tomllib
           from pathlib import Path
-          ast.parse(Path("scripts/verify-zircon.py").read_text())
+          for helper in [Path("scripts/verify-zircon.py"), Path("scripts/test-qemu-zircon.py"), *Path("scripts/qemu").glob("*.py")]:
+              ast.parse(helper.read_text())
           config = tomllib.loads(Path("devices/zircon.toml").read_text())
           stock = json.loads(Path("devices/zircon-stock.json").read_text())
           assert config["stock"]["version"] == stock["version"]

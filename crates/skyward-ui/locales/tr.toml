@@ -395,6 +395,8 @@ changed_sent = "Dosya gönderilirken değişti. Yeniden gönderin."
 changed_read = "Dosya okunurken değişti. Yeniden seçin."
 
 [wlan]
+simulated_title = "Wi-Fi (simülasyon)"
+simulated_note = "QEMU test ağları tarama ve bağlantıyı simüle eder; gerçek bir ağ bağlantısı kurulmaz. QEMU-Skyward test parolası: qemu-demo."
 turn_on_note = "Açıkken sistem güncellemeleri ve Skyward'ın yeni sürümleri Wi-Fi üzerinden indirilebilir."
 cant_turn_on = "Wi-Fi açılamadı: {why}"
 turning_on_wlan = "Wi-Fi açılıyor"

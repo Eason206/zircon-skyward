@@ -103,7 +103,7 @@ cargo test --locked --workspace
 cargo clippy --locked --workspace --all-targets -- -D warnings
 ```
 
-All **941 host workspace tests** passed for this release candidate, including
+All **946 host workspace tests** passed for this release candidate, including
 the stock zircon fstab regression and upstream functionality tests. Release assets contain
 `verification.json`, `BUILDINFO.json` and `SHA256SUMS` for the published build.
 
@@ -140,3 +140,6 @@ zircon image requires the exact local stock inputs, which are deliberately kept
 outside Git. Releases publish independently verified local builds. Skyward's
 update source is this repository; GitHub's `releases/latest` excludes alpha
 pre-releases until a stable release is published.
+
+
+See [the QEMU notes](QEMU.md) for the visible ARM64 preview, simulated Wi-Fi and validation limits.

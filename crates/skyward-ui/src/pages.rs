@@ -251,7 +251,8 @@ pub fn home(cx: &Ctx) -> Frame {
     let mut rows = Vec::new();
     let mut opens = Vec::new();
     if let Some(w) = &cx.state.wlan {
-        rows.push(Row::new(l.pick(texts::page::WLAN)).icon(BLUE, Icon::Wlan).trail(Trail::Value(fmt::wlan_value(l, w))));
+        let title = if cx.state.wlan_simulated { texts::wlan::SIMULATED_TITLE } else { texts::page::WLAN };
+        rows.push(Row::new(l.pick(title)).icon(BLUE, Icon::Wlan).trail(Trail::Value(fmt::wlan_value(l, w))));
         opens.push(Action::Open(Screen::Wlan));
     }
     let starts = systems_value(cx);
@@ -2464,6 +2465,9 @@ pub fn wlan(cx: &Ctx) -> Frame {
     let switch = widgets::list(&mut c, t, f, top, &[Row::new(l.pick(texts::page::WLAN)).trail(Trail::Switch(on))]);
     out.extend(hits(&switch.rows, &[Action::Toggle(Switch::Wlan)]));
     let mut y = switch.bottom;
+    if s.wlan_simulated {
+        y = widgets::footnote(&mut c, t, f, y, l.pick(texts::wlan::SIMULATED_NOTE));
+    }
     match &w.power {
         Power::Off => y = widgets::footnote(&mut c, t, f, y, l.pick(texts::wlan::TURN_ON_NOTE)),
         Power::Failed(why) => y = widgets::footnote(&mut c, t, f, y, &texts::wlan::cant_turn_on(l, why)),
@@ -2530,7 +2534,8 @@ pub fn wlan(cx: &Ctx) -> Frame {
             y = list.bottom;
         }
     }
-    Frame::new(t, fit(c, t, y), out, l.pick(texts::page::WLAN), top)
+    let title = if s.wlan_simulated { texts::wlan::SIMULATED_TITLE } else { texts::page::WLAN };
+    Frame::new(t, fit(c, t, y), out, l.pick(title), top)
 }
 
 /// The password of the network chosen: its name, what is typed, a switch

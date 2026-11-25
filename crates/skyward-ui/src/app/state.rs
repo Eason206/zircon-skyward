@@ -174,6 +174,8 @@ pub struct State {
     /// The WLAN, as the runtime last told it; none on a phone whose WLAN the
     /// recovery does not bring up.
     pub wlan: Option<Wlan>,
+    /// The WLAN is an explicit UI simulation, with no radio or network I/O.
+    pub wlan_simulated: bool,
     /// The network the password page is for, and what is typed there.
     pub joining: Option<Network>,
     /// The network the details page is of, as it was found.
@@ -274,6 +276,7 @@ impl Default for State {
             part_work: None,
             update: Standing::None,
             wlan: None,
+            wlan_simulated: false,
             joining: None,
             details: None,
             adding: None,

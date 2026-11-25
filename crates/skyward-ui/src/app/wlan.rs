@@ -49,6 +49,11 @@ pub(super) fn refused(l: Lang, security: Security, password: &str) -> Option<&'s
 }
 
 impl App {
+    /// Explain why an explicit WLAN preview cannot run an online action.
+    pub fn report_wlan_simulation(&mut self, now: u64) {
+        self.report(self.state.lang.pick(texts::wlan::SIMULATED_NOTE), now);
+    }
+
     /// How the WLAN stands, as the runtime last told it.
     pub fn set_wlan(&mut self, w: Wlan) {
         if self.state.wlan.as_ref() == Some(&w) {
@@ -95,6 +100,18 @@ mod tests {
     use super::*;
     use crate::app::testing::*;
     use crate::color::over;
+
+    #[test]
+    fn simulated_wlan_is_visible_and_labelled() {
+        let (f, i) = (fonts(), info());
+        let mut app = App::new(Screen::Home, W, H, PPD);
+        app.state.wlan_simulated = true;
+        app.set_wlan(Wlan::default());
+        assert!(app.frame(&f, &i).hits.iter().any(|hit| hit.action == Action::Open(Screen::Wlan)));
+        assert!(tap(&mut app, &f, &i, Action::Open(Screen::Wlan)).is_empty());
+        assert_eq!(app.frame(&f, &i).title, "Wi-Fi（模拟）");
+        assert!(app.frame(&f, &i).hits.iter().any(|hit| hit.action == Action::Toggle(Switch::Wlan)));
+    }
 
     #[test]
     fn the_wlan_page_joins_a_network_with_its_password_and_leaves_it() {

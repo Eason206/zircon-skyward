@@ -392,6 +392,8 @@ changed_sent = "File berubah saat dikirim. Kirim lagi."
 changed_read = "File berubah saat dibaca. Pilih lagi."
 
 [wlan]
+simulated_title = "Wi-Fi (simulasi)"
+simulated_note = "Jaringan uji QEMU menyimulasikan pemindaian dan koneksi tanpa akses jaringan nyata. Kata sandi uji QEMU-Skyward adalah qemu-demo."
 turn_on_note = "Jika aktif, update sistem dan versi baru Skyward dapat didownload melalui Wi-Fi."
 cant_turn_on = "Tidak dapat mengaktifkan Wi-Fi: {why}"
 turning_on_wlan = "Mengaktifkan Wi-Fi"

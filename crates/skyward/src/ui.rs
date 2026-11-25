@@ -1138,7 +1138,21 @@ fn job_end(end: filework::End) -> JobEnd {
 /// are the phone's own that the recovery keeps running: the
 /// configuration's, and those the phone's partitions name for its keys.
 pub fn run(cfg: &DeviceConfig, programs: &[Service], font: &Path, mono: &Path, request: bcb::Request, start: Screen, dump: Option<&Path>) -> Result<()> {
-    let mut pages = Pages::open(cfg, programs, font, mono, request, start, dump)?;
+    drive(Pages::open(cfg, programs, font, mono, request, start, dump)?)
+}
+
+/// An explicitly requested UI preview; simulation never runs from recovery init.
+pub fn preview(cfg: &DeviceConfig, programs: &[Service], font: &Path, mono: &Path, start: Screen, dump: Option<&Path>, simulate_wlan: bool) -> Result<()> {
+    let mut pages = Pages::open(cfg, programs, font, mono, bcb::Request::default(), start, dump)?;
+    if simulate_wlan {
+        pages.app.state.wlan_simulated = true;
+        pages.app.set_wlan(Wlan::default());
+        pages.wlan = Some(wlan::Worker::simulated()?);
+    }
+    drive(pages)
+}
+
+fn drive(mut pages: Pages<'_>) -> Result<()> {
     pages.begin()?;
     // The phone sleeps while its screen is off and nothing needs it awake.
     let sleeper = Sleeper::start()?;
@@ -1616,7 +1630,7 @@ impl<'a> Pages<'a> {
         }
         // The WLAN starts off. Without the bundle of the vendor interface's
         // libraries the supplicant does not start, and the WLAN page says why.
-        if let Some(w) = &cfg.wlan {
+        if let Some(w) = cfg.wlan.as_ref().filter(|_| !self.app.state.wlan_simulated) {
             self.app.state.wlan = Some(Wlan::default());
             let modules = cfg.modules.sources.iter().map(|s| skyward_modules::source_dir(s)).collect::<Result<Vec<_>>>()?;
             let libraries = secure::libraries().unwrap_or_else(|e| {
@@ -2561,6 +2575,12 @@ impl Pages<'_> {
     /// Do what a page asks for, and give what the pages ask for in answer
     /// to it.
     fn effect(&mut self, fx: Effect, now: u64) -> Result<Vec<Effect>> {
+        if self.app.state.wlan_simulated
+            && matches!(&fx, Effect::CheckUpdate | Effect::CheckSkyward | Effect::Download(_) | Effect::UpdateSkyward(_))
+        {
+            self.app.report_wlan_simulation(now);
+            return Ok(Vec::new());
+        }
         let cfg = self.cfg;
         match fx {
             // Leaving is the user's answer to whatever the request

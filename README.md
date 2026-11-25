@@ -8,12 +8,13 @@ Pro+ (`zircon`)**, synchronized with the complete **Skyward 0.5.1** source from
 **OS3.0.305.0.WNOCNXM** stock boot and vendor_boot images and preserves their
 kernel, device tree and recovery drivers.
 
-**Current release: `v0.5.1-alpha.1`. Built and verified offline; not boot-tested
+**Current release: `v0.5.1-alpha.2`. Built and verified offline; not boot-tested
 on a phone.**
 
-[Download the alpha](https://github.com/Eason206/zircon-skyward/releases/tag/v0.5.1-alpha.1)
+[Download the alpha](https://github.com/Eason206/zircon-skyward/releases/tag/v0.5.1-alpha.2)
 · [Build and validation notes](docs/ZIRCON.md)
 · [Device configuration](devices/zircon.toml)
+· [QEMU preview and simulated Wi-Fi](docs/QEMU.md)
 
 ## Upstream functionality
 
@@ -57,7 +58,8 @@ are recorded in [devices/zircon-stock.json](devices/zircon-stock.json).
 | Original DTB, init, adbd, policy, libraries and 206 kernel modules | Preserved and checked |
 | Display and touch | Stock drivers prepared; phone behavior untested |
 | ADB and MTP | Included; phone behavior untested |
-| Wi-Fi and haptic configuration | Not enabled in this alpha |
+| Wi-Fi and haptic configuration | Phone configuration pending; QEMU has labelled Wi-Fi simulation |
+| Visible QEMU preview | Correct phone image, scan, password connection and forgetting checked; see [notes](docs/QEMU.md) |
 | FBE decryption, flashing, backup/restore and dual boot | Full upstream implementations included; device validation pending |
 
 This alpha is for port testing on a device with an unlocked bootloader and
@@ -72,7 +74,7 @@ Download the ZIP, `SHA256SUMS`, `verification.json` and `BUILDINFO.json` from
 obtain the 64 MiB `.img` and check both the ZIP and image against SHA256SUMS:
 
 ```sh
-unzip skyward-v0.5.1-alpha.1-zircon-OS3.0.305.0.WNOCNXM-experimental.zip
+unzip skyward-v0.5.1-alpha.2-zircon-OS3.0.305.0.WNOCNXM-experimental.zip
 shasum -a 256 -c SHA256SUMS
 ```
 

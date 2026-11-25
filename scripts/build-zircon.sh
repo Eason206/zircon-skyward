@@ -121,7 +121,7 @@ readme = (f'Skyward for zircon v{version} — experimental alpha / 实验版\n'
           f'Documentation / 说明: {repository}\n')
 files = [(image.name, image.read_bytes()), ('README.txt', readme.encode('utf-8'))]
 for name in ('README.md', 'README.zh-CN.md', 'LICENSE', 'NOTICE.md', 'UPSTREAM.toml', 'docs/UPSTREAM.md', 'docs/ZIRCON.md',
-             'docs/ZIRCON.zh-CN.md', 'devices/zircon.toml', 'devices/zircon-stock.json',
+             'docs/ZIRCON.zh-CN.md', 'docs/QEMU.md', 'devices/zircon.toml', 'devices/zircon-stock.json',
              'resources/fonts/KirkMono-OFL.txt'):
     files.append((name, (root / name).read_bytes()))
 for name in ('verification.json', 'BUILDINFO.json', 'SOURCE.txt'):

@@ -457,6 +457,8 @@ changed_sent = "The file changed while it was sent. Send it again."
 changed_read = "The file changed while it was read. Choose it again."
 
 [wlan]
+simulated_title = "Wi-Fi (simulation)"
+simulated_note = "QEMU test hotspots simulate scanning and connecting without real network access. QEMU-Skyward uses the test password qemu-demo."
 turn_on_note = "When on, system updates and new versions of Skyward can download over Wi-Fi."
 cant_turn_on = "Couldn't turn on Wi-Fi: {why}"
 turning_on_wlan = "Turning on Wi-Fi"

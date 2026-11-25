@@ -395,6 +395,8 @@ changed_sent = "Tệp đã thay đổi trong lúc gửi. Hãy gửi lại."
 changed_read = "Tệp đã thay đổi trong lúc đọc. Hãy chọn lại."
 
 [wlan]
+simulated_title = "Wi-Fi (mô phỏng)"
+simulated_note = "Mạng thử nghiệm QEMU mô phỏng việc quét và kết nối mà không truy cập mạng thực. Mật khẩu thử nghiệm của QEMU-Skyward là qemu-demo."
 turn_on_note = "Khi bật, có thể tải bản cập nhật hệ thống và phiên bản mới của Skyward qua Wi-Fi."
 cant_turn_on = "Không bật được Wi-Fi: {why}"
 turning_on_wlan = "Đang bật Wi-Fi"

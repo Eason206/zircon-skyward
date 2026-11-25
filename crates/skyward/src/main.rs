@@ -228,6 +228,9 @@ enum Cmd {
         /// Open on the unlock page instead of the home page.
         #[arg(long)]
         unlock: bool,
+        /// Preview simulated WLAN hotspots without radio or network access.
+        #[arg(long)]
+        simulate_wlan: bool,
         /// After each frame, also write it as raw RGBA to this file.
         #[arg(long)]
         dump: Option<std::path::PathBuf>,
@@ -465,7 +468,7 @@ fn main() -> Result<()> {
             Ok(())
         }
         #[cfg(target_os = "android")]
-        Cmd::Ui { config, font, mono, unlock, dump } => {
+        Cmd::Ui { config, font, mono, unlock, simulate_wlan, dump } => {
             let cfg = DeviceConfig::load(&config)?;
             let start = if unlock { skyward_ui::app::Screen::Decrypt } else { skyward_ui::app::Screen::Home };
             // The programs the recovery service started for the phone's
@@ -476,7 +479,7 @@ fn main() -> Result<()> {
                 Ok(steps) => programs.extend(keys::programs(&steps)),
                 Err(e) => eprintln!("the programs of the phone's keys are not known: {e:#}"),
             }
-            ui::run(&cfg, &programs, &font, &mono, bcb::Request::default(), start, dump.as_deref())
+            ui::preview(&cfg, &programs, &font, &mono, start, dump.as_deref(), simulate_wlan)
         }
     }
 }

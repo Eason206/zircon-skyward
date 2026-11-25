@@ -392,6 +392,8 @@ changed_sent = "文件在发送过程中被修改，请重新发送。"
 changed_read = "文件在读取过程中被修改，请重新选择。"
 
 [wlan]
+simulated_title = "Wi-Fi（模拟）"
+simulated_note = "QEMU 测试热点用于模拟扫描和连接，不访问真实无线网络。QEMU-Skyward 的测试密码是 qemu-demo。"
 turn_on_note = "开启后，可连接 WLAN 下载系统更新和 Skyward 新版本。"
 cant_turn_on = "无法开启 WLAN：{why}"
 turning_on_wlan = "正在开启 WLAN"
